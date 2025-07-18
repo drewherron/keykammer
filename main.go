@@ -13,8 +13,30 @@ import (
 	pb "keykammer/proto"
 )
 
+const (
+	MaxKeyFileSize = 20 * 1024 * 1024 // 20MB
+)
+
+// getFileSize returns the size of a file in bytes
+func getFileSize(path string) (int64, error) {
+	stat, err := os.Stat(path)
+	if err != nil {
+		return 0, err
+	}
+	return stat.Size(), nil
+}
+
 // readFile reads the contents of a file and returns the raw bytes
 func readFile(path string) ([]byte, error) {
+	size, err := getFileSize(path)
+	if err != nil {
+		return nil, err
+	}
+	
+	if size > MaxKeyFileSize {
+		return nil, fmt.Errorf("file too large: %d bytes (max: %d bytes)", size, MaxKeyFileSize)
+	}
+	
 	return os.ReadFile(path)
 }
 
