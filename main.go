@@ -68,6 +68,35 @@ func deriveEncryptionKey(fileContent []byte) ([]byte, error) {
 	return key, nil
 }
 
+// deriveRoomID generates a room ID from file content using salted hash
+func deriveRoomID(fileContent []byte) string {
+	salt := []byte(KeyDerivationSalt)
+	// Concatenate salt + content
+	salted := append(salt, fileContent...)
+	hash := sha256.Sum256(salted)
+	return hex.EncodeToString(hash[:])
+}
+
+// KeyInfo bundles room ID and encryption key derived from file content
+type KeyInfo struct {
+	RoomID        string
+	EncryptionKey []byte
+}
+
+// deriveKeyInfo derives both room ID and encryption key from file content
+func deriveKeyInfo(fileContent []byte) (*KeyInfo, error) {
+	roomID := deriveRoomID(fileContent)
+	encryptionKey, err := deriveEncryptionKey(fileContent)
+	if err != nil {
+		return nil, err
+	}
+	
+	return &KeyInfo{
+		RoomID:        roomID,
+		EncryptionKey: encryptionKey,
+	}, nil
+}
+
 // Server implementation
 type server struct {
 	pb.UnimplementedChatServiceServer
@@ -123,6 +152,24 @@ func main() {
 		flag.Usage()
 		os.Exit(1)
 	}
+
+	// Read keyfile and derive key info
+	fileContent, err := readFile(*keyfile)
+	if err != nil {
+		fmt.Printf("Error reading keyfile: %v\n", err)
+		os.Exit(1)
+	}
+
+	keyInfo, err := deriveKeyInfo(fileContent)
+	if err != nil {
+		fmt.Printf("Error deriving key info: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Print derived values and exit (temporary)
+	fmt.Printf("Room ID: %s\n", keyInfo.RoomID[:16])
+	fmt.Printf("Key length: %d bytes\n", len(keyInfo.EncryptionKey))
+	os.Exit(0)
 
 	if *serverMode {
 		runServer()
