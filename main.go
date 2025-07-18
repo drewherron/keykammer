@@ -6,10 +6,12 @@ import (
 	"encoding/hex"
 	"flag"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
 
+	"golang.org/x/crypto/hkdf"
 	"google.golang.org/grpc"
 
 	pb "keykammer/proto"
@@ -17,6 +19,8 @@ import (
 
 const (
 	MaxKeyFileSize = 20 * 1024 * 1024 // 20MB
+	// KeyDerivationSalt must remain constant for compatibility across all clients
+	KeyDerivationSalt = "keykammer-v1-salt"
 )
 
 // getFileSize returns the size of a file in bytes
@@ -46,6 +50,22 @@ func readFile(path string) ([]byte, error) {
 func hashContent(content []byte) string {
 	hash := sha256.Sum256(content)
 	return hex.EncodeToString(hash[:])
+}
+
+// deriveEncryptionKey derives a 32-byte encryption key from file content using HKDF
+func deriveEncryptionKey(fileContent []byte) ([]byte, error) {
+	salt := []byte(KeyDerivationSalt)
+	info := []byte("keykammer-encryption-key")
+	
+	hkdf := hkdf.New(sha256.New, fileContent, salt, info)
+	key := make([]byte, 32) // 32 bytes for AES-256
+	
+	_, err := io.ReadFull(hkdf, key)
+	if err != nil {
+		return nil, err
+	}
+	
+	return key, nil
 }
 
 // Server implementation

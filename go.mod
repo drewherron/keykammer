@@ -4,7 +4,6 @@ go 1.19
 
 require (
 	golang.org/x/crypto v0.0.0-20190308221718-c2843e01d9a2
-	golang.org/x/term v0.1.0
 	google.golang.org/grpc v1.30.0
 	google.golang.org/protobuf v1.26.0-rc.1
 )
