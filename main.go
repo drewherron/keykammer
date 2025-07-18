@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"google.golang.org/grpc"
 
@@ -59,7 +60,14 @@ func runClient() {
 
 func main() {
 	serverMode := flag.Bool("server", false, "Run in server mode")
+	keyfile := flag.String("keyfile", "", "Path to key file (required)")
 	flag.Parse()
+
+	if *keyfile == "" {
+		fmt.Println("Error: -keyfile is required")
+		flag.Usage()
+		os.Exit(1)
+	}
 
 	if *serverMode {
 		runServer()
