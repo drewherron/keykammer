@@ -13,6 +13,11 @@ import (
 	pb "keykammer/proto"
 )
 
+// readFile reads the contents of a file and returns the raw bytes
+func readFile(path string) ([]byte, error) {
+	return os.ReadFile(path)
+}
+
 // Server implementation
 type server struct {
 	pb.UnimplementedChatServiceServer
