@@ -2,6 +2,8 @@ package main
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"flag"
 	"fmt"
 	"log"
@@ -38,6 +40,12 @@ func readFile(path string) ([]byte, error) {
 	}
 	
 	return os.ReadFile(path)
+}
+
+// hashContent returns the hex-encoded SHA-256 hash of the content
+func hashContent(content []byte) string {
+	hash := sha256.Sum256(content)
+	return hex.EncodeToString(hash[:])
 }
 
 // Server implementation
