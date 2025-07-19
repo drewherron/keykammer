@@ -54,12 +54,15 @@ func hashContent(content []byte) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// deriveEncryptionKey derives a 32-byte encryption key from file content using HKDF
-func deriveEncryptionKey(fileContent []byte) ([]byte, error) {
+// deriveEncryptionKey derives a 32-byte encryption key from file content and password using HKDF
+func deriveEncryptionKey(fileContent []byte, password string) ([]byte, error) {
 	salt := []byte(KeyDerivationSalt)
 	info := []byte("keykammer-encryption-key")
 	
-	hkdf := hkdf.New(sha256.New, fileContent, salt, info)
+	// Combine file content and password as input key material
+	keyMaterial := append(fileContent, []byte(password)...)
+	
+	hkdf := hkdf.New(sha256.New, keyMaterial, salt, info)
 	key := make([]byte, 32) // 32 bytes for AES-256
 	
 	_, err := io.ReadFull(hkdf, key)
@@ -70,11 +73,12 @@ func deriveEncryptionKey(fileContent []byte) ([]byte, error) {
 	return key, nil
 }
 
-// deriveRoomID generates a room ID from file content using salted hash
-func deriveRoomID(fileContent []byte) string {
+// deriveRoomID generates a room ID from file content and password using salted hash
+func deriveRoomID(fileContent []byte, password string) string {
 	salt := []byte(KeyDerivationSalt)
-	// Concatenate salt + content
+	// Concatenate salt + content + password
 	salted := append(salt, fileContent...)
+	salted = append(salted, []byte(password)...)
 	hash := sha256.Sum256(salted)
 	return hex.EncodeToString(hash[:])
 }
@@ -85,10 +89,10 @@ type KeyInfo struct {
 	EncryptionKey []byte
 }
 
-// deriveKeyInfo derives both room ID and encryption key from file content
-func deriveKeyInfo(fileContent []byte) (*KeyInfo, error) {
-	roomID := deriveRoomID(fileContent)
-	encryptionKey, err := deriveEncryptionKey(fileContent)
+// deriveKeyInfo derives both room ID and encryption key from file content and password
+func deriveKeyInfo(fileContent []byte, password string) (*KeyInfo, error) {
+	roomID := deriveRoomID(fileContent, password)
+	encryptionKey, err := deriveEncryptionKey(fileContent, password)
 	if err != nil {
 		return nil, err
 	}
@@ -148,6 +152,7 @@ func main() {
 	serverMode := flag.Bool("server", false, "Run in server mode")
 	keyfile := flag.String("keyfile", "", "Path to key file (required)")
 	port := flag.Int("port", DefaultPort, "Port to use (default: 76667)")
+	password := flag.String("password", "", "Optional password for server derivation (empty uses keyfile only)")
 	flag.Parse()
 
 	if *keyfile == "" {
@@ -163,7 +168,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	keyInfo, err := deriveKeyInfo(fileContent)
+	keyInfo, err := deriveKeyInfo(fileContent, *password)
 	if err != nil {
 		fmt.Printf("Error deriving key info: %v\n", err)
 		os.Exit(1)
@@ -172,6 +177,7 @@ func main() {
 	// Print derived values and exit (temporary)
 	fmt.Printf("Room ID: %s\n", keyInfo.RoomID[:16])
 	fmt.Printf("Key length: %d bytes\n", len(keyInfo.EncryptionKey))
+	fmt.Printf("Port: %d\n", *port)
 	os.Exit(0)
 
 	if *serverMode {
