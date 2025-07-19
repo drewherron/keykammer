@@ -21,6 +21,8 @@ const (
 	MaxKeyFileSize = 20 * 1024 * 1024 // 20MB
 	// KeyDerivationSalt must remain constant for compatibility across all clients
 	KeyDerivationSalt = "keykammer-v1-salt"
+	// DefaultPort is the default port for keykammer servers (76667 spells "rooms")
+	DefaultPort = 76667
 )
 
 // getFileSize returns the size of a file in bytes
@@ -145,6 +147,7 @@ func runClient() {
 func main() {
 	serverMode := flag.Bool("server", false, "Run in server mode")
 	keyfile := flag.String("keyfile", "", "Path to key file (required)")
+	port := flag.Int("port", DefaultPort, "Port to use (default: 76667)")
 	flag.Parse()
 
 	if *keyfile == "" {
