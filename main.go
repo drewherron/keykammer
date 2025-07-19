@@ -23,6 +23,11 @@ const (
 	KeyDerivationSalt = "keykammer-v1-salt"
 	// DefaultPort is the default port for keykammer servers (76667 spells "rooms")
 	DefaultPort = 76667
+	// DefaultDiscoveryServer is the default discovery server endpoint
+	DefaultDiscoveryServer = "https://discovery.keykammer.com"
+	// Discovery server timeout constants
+	DiscoveryTimeout = 10 // seconds
+	DiscoveryRetryDelay = 2 // seconds
 )
 
 // getFileSize returns the size of a file in bytes
@@ -96,6 +101,30 @@ type KeyInfo struct {
 	EncryptionKey []byte
 }
 
+// Discovery server data structures
+
+// RoomRegistration represents a room registration request to the discovery server
+type RoomRegistration struct {
+	RoomID        string `json:"room_id"`
+	ServerAddress string `json:"server_address"`
+	MaxUsers      int    `json:"max_users"`
+	CurrentUsers  int    `json:"current_users"`
+}
+
+// RoomLookup represents a room lookup request
+type RoomLookup struct {
+	RoomID string `json:"room_id"`
+}
+
+// DiscoveryResponse represents the response from the discovery server
+type DiscoveryResponse struct {
+	ServerAddress string `json:"server_address"`
+	CurrentUsers  int    `json:"current_users"`
+	MaxUsers      int    `json:"max_users"`
+	WillAutoDelete bool  `json:"will_auto_delete"`
+	SlotsRemaining int   `json:"slots_remaining"`
+}
+
 // deriveKeyInfo derives both room ID and encryption key from file content and password
 func deriveKeyInfo(fileContent []byte, password string) (*KeyInfo, error) {
 	roomID := deriveRoomID(fileContent, password)
@@ -161,6 +190,7 @@ func main() {
 	port := flag.Int("port", DefaultPort, "Port to use (default: 76667)")
 	password := flag.String("password", "", "Optional password for server derivation (empty uses keyfile only)")
 	size := flag.Int("size", 2, "Maximum users per room (default: 2 for maximum privacy, 0 = unlimited)")
+	discoveryServer := flag.String("discovery-server", DefaultDiscoveryServer, "Discovery server URL")
 	flag.Parse()
 
 	if *keyfile == "" {
@@ -197,6 +227,7 @@ func main() {
 	} else {
 		fmt.Printf("Room size: %d users max\n", *size)
 	}
+	fmt.Printf("Discovery server: %s\n", *discoveryServer)
 	serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
 	fmt.Printf("Server address: %s\n", serverAddr)
 	os.Exit(0)
