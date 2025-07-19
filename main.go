@@ -83,6 +83,13 @@ func deriveRoomID(fileContent []byte, password string) string {
 	return hex.EncodeToString(hash[:])
 }
 
+// deriveLocalServerAddress derives a consistent local server address from file content and password
+func deriveLocalServerAddress(fileContent []byte, password string, port int) string {
+	// For localhost, we use 127.0.0.1 with the specified port
+	// Later this can be extended for distributed/internet-wide addressing
+	return fmt.Sprintf("127.0.0.1:%d", port)
+}
+
 // KeyInfo bundles room ID and encryption key derived from file content
 type KeyInfo struct {
 	RoomID        string
@@ -178,6 +185,8 @@ func main() {
 	fmt.Printf("Room ID: %s\n", keyInfo.RoomID[:16])
 	fmt.Printf("Key length: %d bytes\n", len(keyInfo.EncryptionKey))
 	fmt.Printf("Port: %d\n", *port)
+	serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
+	fmt.Printf("Server address: %s\n", serverAddr)
 	os.Exit(0)
 
 	if *serverMode {
