@@ -160,11 +160,18 @@ func main() {
 	keyfile := flag.String("keyfile", "", "Path to key file (required)")
 	port := flag.Int("port", DefaultPort, "Port to use (default: 76667)")
 	password := flag.String("password", "", "Optional password for server derivation (empty uses keyfile only)")
+	size := flag.Int("size", 2, "Maximum users per room (default: 2 for maximum privacy, 0 = unlimited)")
 	flag.Parse()
 
 	if *keyfile == "" {
 		fmt.Println("Error: -keyfile is required")
 		flag.Usage()
+		os.Exit(1)
+	}
+
+	// Validate size parameter
+	if *size < 0 {
+		fmt.Println("Error: room size must be >= 0 (0 means unlimited)")
 		os.Exit(1)
 	}
 
@@ -185,6 +192,11 @@ func main() {
 	fmt.Printf("Room ID: %s\n", keyInfo.RoomID[:16])
 	fmt.Printf("Key length: %d bytes\n", len(keyInfo.EncryptionKey))
 	fmt.Printf("Port: %d\n", *port)
+	if *size == 0 {
+		fmt.Printf("Room size: unlimited\n")
+	} else {
+		fmt.Printf("Room size: %d users max\n", *size)
+	}
 	serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
 	fmt.Printf("Server address: %s\n", serverAddr)
 	os.Exit(0)
