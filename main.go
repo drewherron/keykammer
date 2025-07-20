@@ -1,15 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"flag"
 	"fmt"
 	"io"
 	"log"
 	"net"
+	"net/http"
 	"os"
+	"time"
 
 	"golang.org/x/crypto/hkdf"
 	"google.golang.org/grpc"
@@ -123,6 +127,70 @@ type DiscoveryResponse struct {
 	MaxUsers      int    `json:"max_users"`
 	WillAutoDelete bool  `json:"will_auto_delete"`
 	SlotsRemaining int   `json:"slots_remaining"`
+}
+
+// Discovery server HTTP client functions
+
+// createDiscoveryClient creates an HTTP client with reasonable timeouts for discovery operations
+func createDiscoveryClient() *http.Client {
+	return &http.Client{
+		Timeout: time.Duration(DiscoveryTimeout) * time.Second,
+	}
+}
+
+// registerRoom registers a new room with the discovery server
+func registerRoom(discoveryURL, roomID, serverAddr string, maxUsers int) error {
+	client := createDiscoveryClient()
+	
+	registration := RoomRegistration{
+		RoomID:        roomID,
+		ServerAddress: serverAddr,
+		MaxUsers:      maxUsers,
+		CurrentUsers:  1, // Starting with 1 user (the creator)
+	}
+	
+	jsonData, err := json.Marshal(registration)
+	if err != nil {
+		return fmt.Errorf("failed to marshal registration: %v", err)
+	}
+	
+	resp, err := client.Post(discoveryURL+"/api/rooms", "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return fmt.Errorf("failed to register room: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("registration failed with status: %d", resp.StatusCode)
+	}
+	
+	return nil
+}
+
+// lookupRoom looks up an existing room in the discovery server
+func lookupRoom(discoveryURL, roomID string) (*DiscoveryResponse, error) {
+	client := createDiscoveryClient()
+	
+	resp, err := client.Get(discoveryURL + "/api/rooms/" + roomID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to lookup room: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, nil // Room not found, which is not an error
+	}
+	
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("lookup failed with status: %d", resp.StatusCode)
+	}
+	
+	var discovery DiscoveryResponse
+	if err := json.NewDecoder(resp.Body).Decode(&discovery); err != nil {
+		return nil, fmt.Errorf("failed to decode response: %v", err)
+	}
+	
+	return &discovery, nil
 }
 
 // deriveKeyInfo derives both room ID and encryption key from file content and password
