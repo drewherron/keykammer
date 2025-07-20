@@ -214,6 +214,31 @@ func registerWithDiscovery(keyInfo *KeyInfo, discoveryURL string, port int, maxU
 	return nil
 }
 
+// lookupRoomInDiscovery looks up an existing room via discovery server and returns server address
+func lookupRoomInDiscovery(roomID, discoveryURL string) (string, error) {
+	discovery, err := lookupRoom(discoveryURL, roomID)
+	if err != nil {
+		return "", fmt.Errorf("failed to lookup room in discovery server: %v", err)
+	}
+	
+	if discovery == nil {
+		// Room not found
+		fmt.Printf("✗ Room not found in discovery server\n")
+		return "", nil
+	}
+	
+	fmt.Printf("✓ Found existing room in discovery server\n")
+	fmt.Printf("  Room ID: %s\n", roomID[:16]+"...")
+	fmt.Printf("  Server: %s\n", discovery.ServerAddress)
+	fmt.Printf("  Users: %d/%d\n", discovery.CurrentUsers, discovery.MaxUsers)
+	
+	if discovery.CurrentUsers >= discovery.MaxUsers && discovery.MaxUsers > 0 {
+		return "", fmt.Errorf("room is full (%d/%d users)", discovery.CurrentUsers, discovery.MaxUsers)
+	}
+	
+	return discovery.ServerAddress, nil
+}
+
 // deriveKeyInfo derives both room ID and encryption key from file content and password
 func deriveKeyInfo(fileContent []byte, password string) (*KeyInfo, error) {
 	roomID := deriveRoomID(fileContent, password)
@@ -319,14 +344,6 @@ func main() {
 	fmt.Printf("Discovery server: %s\n", *discoveryServer)
 	serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
 	fmt.Printf("Server address: %s\n", serverAddr)
-	
-	// Test room registration (will fail since discovery server doesn't exist yet)
-	fmt.Printf("\nTesting room registration...\n")
-	err = registerWithDiscovery(keyInfo, *discoveryServer, *port, *size)
-	if err != nil {
-		fmt.Printf("Registration failed (expected): %v\n", err)
-	}
-	
 	os.Exit(0)
 
 	if *serverMode {
