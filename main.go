@@ -239,6 +239,41 @@ func lookupRoomInDiscovery(roomID, discoveryURL string) (string, error) {
 	return discovery.ServerAddress, nil
 }
 
+// deleteRoomFromDiscovery removes a room from the discovery server
+func deleteRoomFromDiscovery(roomID, discoveryURL string) error {
+	client := createDiscoveryClient()
+	
+	req, err := http.NewRequest("DELETE", discoveryURL+"/api/rooms/"+roomID, nil)
+	if err != nil {
+		return fmt.Errorf("failed to create delete request: %v", err)
+	}
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		return fmt.Errorf("failed to delete room: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusNotFound {
+		return fmt.Errorf("deletion failed with status: %d", resp.StatusCode)
+	}
+	
+	fmt.Printf("✓ Room deleted from discovery server\n")
+	fmt.Printf("  Room ID: %s\n", roomID[:16]+"...")
+	fmt.Printf("  Status: Room is now private and invisible\n")
+	
+	return nil
+}
+
+// triggerAutoDelete removes room from discovery when capacity is reached
+func triggerAutoDelete(roomID, discoveryURL string, currentUsers, maxUsers int) error {
+	if maxUsers > 0 && currentUsers >= maxUsers {
+		fmt.Printf("🔒 Room capacity reached (%d/%d) - triggering auto-delete\n", currentUsers, maxUsers)
+		return deleteRoomFromDiscovery(roomID, discoveryURL)
+	}
+	return nil
+}
+
 // deriveKeyInfo derives both room ID and encryption key from file content and password
 func deriveKeyInfo(fileContent []byte, password string) (*KeyInfo, error) {
 	roomID := deriveRoomID(fileContent, password)
