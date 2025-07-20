@@ -129,6 +129,75 @@ type DiscoveryResponse struct {
 	SlotsRemaining int   `json:"slots_remaining"`
 }
 
+// Discovery server status tracking
+
+// DiscoveryStatus represents the current state of discovery server connection
+type DiscoveryStatus int
+
+const (
+	DiscoveryUnknown DiscoveryStatus = iota
+	DiscoveryConnected
+	DiscoveryDisconnected
+	DiscoveryRoomListed
+	DiscoveryRoomDeleted
+)
+
+func (s DiscoveryStatus) String() string {
+	switch s {
+	case DiscoveryUnknown:
+		return "Unknown"
+	case DiscoveryConnected:
+		return "Connected"
+	case DiscoveryDisconnected:
+		return "Disconnected"
+	case DiscoveryRoomListed:
+		return "Room Listed"
+	case DiscoveryRoomDeleted:
+		return "Room Deleted"
+	default:
+		return "Unknown"
+	}
+}
+
+// Global discovery status tracking
+var currentDiscoveryStatus DiscoveryStatus = DiscoveryUnknown
+
+// getDiscoveryStatus returns the current discovery server status
+func getDiscoveryStatus() DiscoveryStatus {
+	return currentDiscoveryStatus
+}
+
+// setDiscoveryStatus updates the current discovery server status
+func setDiscoveryStatus(status DiscoveryStatus) {
+	currentDiscoveryStatus = status
+}
+
+// isDiscoveryServerAvailable tests if the discovery server is reachable
+func isDiscoveryServerAvailable(discoveryURL string) bool {
+	client := createDiscoveryClient()
+	
+	req, err := http.NewRequest("HEAD", discoveryURL+"/api/health", nil)
+	if err != nil {
+		setDiscoveryStatus(DiscoveryDisconnected)
+		return false
+	}
+	
+	resp, err := client.Do(req)
+	if err != nil {
+		setDiscoveryStatus(DiscoveryDisconnected)
+		return false
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode == http.StatusOK {
+		setDiscoveryStatus(DiscoveryConnected)
+		return true
+	}
+	
+	setDiscoveryStatus(DiscoveryDisconnected)
+	return false
+}
+
 // Discovery server HTTP client functions
 
 // createDiscoveryClient creates an HTTP client with reasonable timeouts for discovery operations
@@ -161,9 +230,11 @@ func registerRoom(discoveryURL, roomID, serverAddr string, maxUsers int) error {
 	defer resp.Body.Close()
 	
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+		setDiscoveryStatus(DiscoveryDisconnected)
 		return fmt.Errorf("registration failed with status: %d", resp.StatusCode)
 	}
 	
+	setDiscoveryStatus(DiscoveryRoomListed)
 	return nil
 }
 
@@ -258,6 +329,7 @@ func deleteRoomFromDiscovery(roomID, discoveryURL string) error {
 		return fmt.Errorf("deletion failed with status: %d", resp.StatusCode)
 	}
 	
+	setDiscoveryStatus(DiscoveryRoomDeleted)
 	fmt.Printf("✓ Room deleted from discovery server\n")
 	fmt.Printf("  Room ID: %s\n", roomID[:16]+"...")
 	fmt.Printf("  Status: Room is now private and invisible\n")
@@ -272,6 +344,22 @@ func triggerAutoDelete(roomID, discoveryURL string, currentUsers, maxUsers int) 
 		return deleteRoomFromDiscovery(roomID, discoveryURL)
 	}
 	return nil
+}
+
+// checkDiscoveryAndFallback tests discovery server availability and logs fallback mode
+func checkDiscoveryAndFallback(discoveryURL string) bool {
+	fmt.Printf("Testing discovery server availability...\n")
+	
+	if isDiscoveryServerAvailable(discoveryURL) {
+		fmt.Printf("✓ Discovery server available: %s\n", discoveryURL)
+		return true
+	}
+	
+	fmt.Printf("✗ Discovery server unavailable: %s\n", discoveryURL)
+	fmt.Printf("⚠ Falling back to localhost-only mode\n")
+	fmt.Printf("  Note: Only local connections will work in this mode\n")
+	
+	return false
 }
 
 // deriveKeyInfo derives both room ID and encryption key from file content and password
