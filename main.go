@@ -193,6 +193,27 @@ func lookupRoom(discoveryURL, roomID string) (*DiscoveryResponse, error) {
 	return &discovery, nil
 }
 
+// registerWithDiscovery registers a new room with the discovery server using KeyInfo
+func registerWithDiscovery(keyInfo *KeyInfo, discoveryURL string, port int, maxUsers int) error {
+	// Get local IP address for server registration
+	serverAddr := fmt.Sprintf("127.0.0.1:%d", port)
+	
+	// For internet use, we'd need to get the actual public IP
+	// This is a placeholder for localhost development
+	
+	err := registerRoom(discoveryURL, keyInfo.RoomID, serverAddr, maxUsers)
+	if err != nil {
+		return fmt.Errorf("failed to register with discovery server: %v", err)
+	}
+	
+	fmt.Printf("✓ Room registered with discovery server\n")
+	fmt.Printf("  Room ID: %s\n", keyInfo.RoomID[:16]+"...")
+	fmt.Printf("  Server: %s\n", serverAddr)
+	fmt.Printf("  Max users: %d\n", maxUsers)
+	
+	return nil
+}
+
 // deriveKeyInfo derives both room ID and encryption key from file content and password
 func deriveKeyInfo(fileContent []byte, password string) (*KeyInfo, error) {
 	roomID := deriveRoomID(fileContent, password)
@@ -298,6 +319,14 @@ func main() {
 	fmt.Printf("Discovery server: %s\n", *discoveryServer)
 	serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
 	fmt.Printf("Server address: %s\n", serverAddr)
+	
+	// Test room registration (will fail since discovery server doesn't exist yet)
+	fmt.Printf("\nTesting room registration...\n")
+	err = registerWithDiscovery(keyInfo, *discoveryServer, *port, *size)
+	if err != nil {
+		fmt.Printf("Registration failed (expected): %v\n", err)
+	}
+	
 	os.Exit(0)
 
 	if *serverMode {
