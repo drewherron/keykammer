@@ -99,10 +99,12 @@ func deriveLocalServerAddress(fileContent []byte, password string, port int) str
 	return fmt.Sprintf("127.0.0.1:%d", port)
 }
 
-// KeyInfo bundles room ID and encryption key derived from file content
+// KeyInfo bundles room ID and encryption key derived from file content, plus discovery metadata
 type KeyInfo struct {
-	RoomID        string
-	EncryptionKey []byte
+	RoomID          string
+	EncryptionKey   []byte
+	MaxUsers        int
+	DiscoveryStatus DiscoveryStatus
 }
 
 // Discovery server data structures
@@ -399,8 +401,8 @@ func checkRoomJoinability(roomID string, current, max int) (bool, error) {
 	return true, nil
 }
 
-// deriveKeyInfo derives both room ID and encryption key from file content and password
-func deriveKeyInfo(fileContent []byte, password string) (*KeyInfo, error) {
+// deriveKeyInfo derives both room ID and encryption key from file content and password, plus discovery metadata
+func deriveKeyInfo(fileContent []byte, password string, maxUsers int) (*KeyInfo, error) {
 	roomID := deriveRoomID(fileContent, password)
 	encryptionKey, err := deriveEncryptionKey(fileContent, password)
 	if err != nil {
@@ -408,9 +410,16 @@ func deriveKeyInfo(fileContent []byte, password string) (*KeyInfo, error) {
 	}
 	
 	return &KeyInfo{
-		RoomID:        roomID,
-		EncryptionKey: encryptionKey,
+		RoomID:          roomID,
+		EncryptionKey:   encryptionKey,
+		MaxUsers:        maxUsers,
+		DiscoveryStatus: getDiscoveryStatus(),
 	}, nil
+}
+
+// deriveKeyInfoLegacy provides backward compatibility for existing code that doesn't specify maxUsers
+func deriveKeyInfoLegacy(fileContent []byte, password string) (*KeyInfo, error) {
+	return deriveKeyInfo(fileContent, password, 2) // Default to 2 users for backward compatibility
 }
 
 // Server implementation
@@ -486,7 +495,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	keyInfo, err := deriveKeyInfo(fileContent, *password)
+	keyInfo, err := deriveKeyInfo(fileContent, *password, *size)
 	if err != nil {
 		fmt.Printf("Error deriving key info: %v\n", err)
 		os.Exit(1)
@@ -496,12 +505,13 @@ func main() {
 	fmt.Printf("Room ID: %s\n", keyInfo.RoomID[:16])
 	fmt.Printf("Key length: %d bytes\n", len(keyInfo.EncryptionKey))
 	fmt.Printf("Port: %d\n", *port)
-	if *size == 0 {
+	if keyInfo.MaxUsers == 0 {
 		fmt.Printf("Room size: unlimited\n")
 	} else {
-		fmt.Printf("Room size: %d users max\n", *size)
+		fmt.Printf("Room size: %d users max\n", keyInfo.MaxUsers)
 	}
 	fmt.Printf("Discovery server: %s\n", *discoveryServer)
+	fmt.Printf("Discovery status: %s\n", keyInfo.DiscoveryStatus)
 	serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
 	fmt.Printf("Server address: %s\n", serverAddr)
 	os.Exit(0)
