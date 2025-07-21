@@ -301,10 +301,11 @@ func lookupRoomInDiscovery(roomID, discoveryURL string) (string, error) {
 	fmt.Printf("✓ Found existing room in discovery server\n")
 	fmt.Printf("  Room ID: %s\n", roomID[:16]+"...")
 	fmt.Printf("  Server: %s\n", discovery.ServerAddress)
-	fmt.Printf("  Users: %d/%d\n", discovery.CurrentUsers, discovery.MaxUsers)
 	
-	if discovery.CurrentUsers >= discovery.MaxUsers && discovery.MaxUsers > 0 {
-		return "", fmt.Errorf("room is full (%d/%d users)", discovery.CurrentUsers, discovery.MaxUsers)
+	// Validate room capacity using the new validation function
+	canJoin, err := checkRoomJoinability(roomID, discovery.CurrentUsers, discovery.MaxUsers)
+	if !canJoin {
+		return "", err
 	}
 	
 	return discovery.ServerAddress, nil
@@ -360,6 +361,42 @@ func checkDiscoveryAndFallback(discoveryURL string) bool {
 	fmt.Printf("  Note: Only local connections will work in this mode\n")
 	
 	return false
+}
+
+// validateRoomCapacity checks if a room has space for new users
+func validateRoomCapacity(current, max int) error {
+	if max <= 0 {
+		// Unlimited room (max = 0), always allow
+		return nil
+	}
+	
+	if current < 0 {
+		return fmt.Errorf("invalid current user count: %d", current)
+	}
+	
+	if current >= max {
+		return fmt.Errorf("room is full (%d/%d users)", current, max)
+	}
+	
+	return nil
+}
+
+// checkRoomJoinability validates if a user can join a room based on capacity
+func checkRoomJoinability(roomID string, current, max int) (bool, error) {
+	err := validateRoomCapacity(current, max)
+	if err != nil {
+		fmt.Printf("✗ Cannot join room %s: %v\n", roomID[:16]+"...", err)
+		return false, err
+	}
+	
+	if max > 0 {
+		remaining := max - current
+		fmt.Printf("✓ Room has space: %d/%d users (%d slots remaining)\n", current, max, remaining)
+	} else {
+		fmt.Printf("✓ Room has unlimited capacity (current: %d users)\n", current)
+	}
+	
+	return true, nil
 }
 
 // deriveKeyInfo derives both room ID and encryption key from file content and password
