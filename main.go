@@ -497,7 +497,7 @@ func deriveKeyInfoLegacy(fileContent []byte, password string) (*KeyInfo, error) 
 
 // Server implementation
 type server struct {
-	pb.UnimplementedKeykammerServiceServer
+	pb.UnimplementedChatServiceServer
 }
 
 func (s *server) SendMessage(ctx context.Context, req *pb.ChatMessage) (*pb.ChatResponse, error) {
@@ -512,7 +512,7 @@ func runServer() {
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterKeykammerServiceServer(s, &server{})
+	pb.RegisterChatServiceServer(s, &server{})
 
 	fmt.Println("Server listening on :9999")
 	if err := s.Serve(lis); err != nil {
@@ -527,7 +527,7 @@ func runClient() {
 	}
 	defer conn.Close()
 
-	client := pb.NewKeykammerServiceClient(conn)
+	client := pb.NewChatServiceClient(conn)
 
 	// Send a single test message
 	resp, err := client.SendMessage(context.Background(), &pb.ChatMessage{
@@ -538,6 +538,14 @@ func runClient() {
 	}
 
 	fmt.Printf("Message sent successfully: %v\n", resp.Success)
+}
+
+// determineMode returns "server" if serverAddr is empty, "client" if provided
+func determineMode(serverAddr string) string {
+	if serverAddr == "" {
+		return "server"
+	}
+	return "client"
 }
 
 func main() {
