@@ -10,7 +10,9 @@ service KeykammerService {
 
 message ChatMessage {
   string room_id = 1;
-  string content = 2;
+  bytes encrypted_content = 2;
+  int64 timestamp = 3;
+  string sender_id = 4;
 }
 
 message ChatResponse {
