@@ -266,7 +266,7 @@ func registerWithDiscovery(keyInfo *KeyInfo, discoveryURL string, port int, maxU
 		return fmt.Errorf("failed to register with discovery server: %v", err)
 	}
 	
-	fmt.Printf("✓ Room registered with discovery server\n")
+	fmt.Printf("Room registered with discovery server\n")
 	fmt.Printf("  Room ID: %s\n", keyInfo.RoomID[:16]+"...")
 	fmt.Printf("  Server: %s\n", serverAddr)
 	fmt.Printf("  Max users: %d\n", maxUsers)
@@ -283,11 +283,11 @@ func lookupRoomInDiscovery(roomID, discoveryURL string) (string, error) {
 	
 	if discovery == nil {
 		// Room not found
-		fmt.Printf("✗ Room not found in discovery server\n")
+		fmt.Printf("Room not found in discovery server\n")
 		return "", nil
 	}
 	
-	fmt.Printf("✓ Found existing room in discovery server\n")
+	fmt.Printf("Found existing room in discovery server\n")
 	fmt.Printf("  Room ID: %s\n", roomID[:16]+"...")
 	fmt.Printf("  Server: %s\n", discovery.ServerAddress)
 	
@@ -320,7 +320,7 @@ func deleteRoomFromDiscovery(roomID, discoveryURL string) error {
 	}
 	
 	setDiscoveryStatus(DiscoveryRoomDeleted)
-	fmt.Printf("✓ Room deleted from discovery server\n")
+	fmt.Printf("Room deleted from discovery server\n")
 	fmt.Printf("  Room ID: %s\n", roomID[:16]+"...")
 	fmt.Printf("  Status: Room is now private and invisible\n")
 	
@@ -330,7 +330,7 @@ func deleteRoomFromDiscovery(roomID, discoveryURL string) error {
 // triggerAutoDelete removes room from discovery when capacity is reached
 func triggerAutoDelete(roomID, discoveryURL string, currentUsers, maxUsers int) error {
 	if maxUsers > 0 && currentUsers >= maxUsers {
-		fmt.Printf("🔒 Room capacity reached (%d/%d) - triggering auto-delete\n", currentUsers, maxUsers)
+		fmt.Printf("Room capacity reached (%d/%d) - triggering auto-delete\n", currentUsers, maxUsers)
 		return deleteRoomFromDiscovery(roomID, discoveryURL)
 	}
 	return nil
@@ -344,7 +344,7 @@ func retryDiscoveryOperation(operation func() error, maxRetries int) error {
 		err := operation()
 		if err == nil {
 			if attempt > 0 {
-				fmt.Printf("✓ Discovery operation succeeded after %d retries\n", attempt)
+				fmt.Printf("Discovery operation succeeded after %d retries\n", attempt)
 			}
 			return nil
 		}
@@ -352,7 +352,7 @@ func retryDiscoveryOperation(operation func() error, maxRetries int) error {
 		lastErr = err
 		if attempt < maxRetries {
 			delay := time.Duration(DiscoveryRetryDelay * (1 << attempt)) * time.Second
-			fmt.Printf("⚠ Discovery operation failed (attempt %d/%d): %v\n", attempt+1, maxRetries+1, err)
+			fmt.Printf("Discovery operation failed (attempt %d/%d): %v\n", attempt+1, maxRetries+1, err)
 			fmt.Printf("  Retrying in %v...\n", delay)
 			time.Sleep(delay)
 		}
@@ -427,12 +427,12 @@ func checkDiscoveryAndFallback(discoveryURL string) bool {
 	fmt.Printf("Testing discovery server availability...\n")
 	
 	if isDiscoveryServerAvailable(discoveryURL) {
-		fmt.Printf("✓ Discovery server available: %s\n", discoveryURL)
+		fmt.Printf("Discovery server available: %s\n", discoveryURL)
 		return true
 	}
 	
-	fmt.Printf("✗ Discovery server unavailable: %s\n", discoveryURL)
-	fmt.Printf("⚠ Falling back to localhost-only mode\n")
+	fmt.Printf("Discovery server unavailable: %s\n", discoveryURL)
+	fmt.Printf("Falling back to localhost-only mode\n")
 	fmt.Printf("  Note: Only local connections will work in this mode\n")
 	
 	return false
@@ -460,15 +460,15 @@ func validateRoomCapacity(current, max int) error {
 func checkRoomJoinability(roomID string, current, max int) (bool, error) {
 	err := validateRoomCapacity(current, max)
 	if err != nil {
-		fmt.Printf("✗ Cannot join room %s: %v\n", roomID[:16]+"...", err)
+		fmt.Printf("Cannot join room %s: %v\n", roomID[:16]+"...", err)
 		return false, err
 	}
 	
 	if max > 0 {
 		remaining := max - current
-		fmt.Printf("✓ Room has space: %d/%d users (%d slots remaining)\n", current, max, remaining)
+		fmt.Printf("Room has space: %d/%d users (%d slots remaining)\n", current, max, remaining)
 	} else {
-		fmt.Printf("✓ Room has unlimited capacity (current: %d users)\n", current)
+		fmt.Printf("Room has unlimited capacity (current: %d users)\n", current)
 	}
 	
 	return true, nil
@@ -547,6 +547,7 @@ func main() {
 	password := flag.String("password", "", "Optional password for server derivation (empty uses keyfile only)")
 	size := flag.Int("size", 2, "Maximum users per room (default: 2 for maximum privacy, 0 = unlimited)")
 	discoveryServer := flag.String("discovery-server", DefaultDiscoveryServer, "Discovery server URL")
+	discoveryMode := flag.String("discovery-mode", "auto", "Discovery mode: auto, discovery-only, local-only")
 	flag.Parse()
 
 	if *keyfile == "" {
@@ -558,6 +559,15 @@ func main() {
 	// Validate size parameter
 	if *size < 0 {
 		fmt.Println("Error: room size must be >= 0 (0 means unlimited)")
+		os.Exit(1)
+	}
+
+	// Validate discovery mode parameter
+	switch *discoveryMode {
+	case "auto", "discovery-only", "local-only":
+		// Valid modes
+	default:
+		fmt.Printf("Error: invalid discovery mode '%s'. Must be one of: auto, discovery-only, local-only\n", *discoveryMode)
 		os.Exit(1)
 	}
 
@@ -583,9 +593,26 @@ func main() {
 	}
 	fmt.Printf("\n")
 	
-	// Check discovery server availability at startup
+	// Check discovery mode and server availability
 	fmt.Printf("Discovery server: %s\n", *discoveryServer)
-	discoveryAvailable := checkDiscoveryAndFallback(*discoveryServer)
+	fmt.Printf("Discovery mode: %s\n", *discoveryMode)
+	
+	var discoveryAvailable bool
+	
+	switch *discoveryMode {
+	case "local-only":
+		fmt.Printf("Local-only mode selected, skipping discovery server\n")
+		discoveryAvailable = false
+	case "discovery-only":
+		fmt.Printf("Discovery-only mode selected, discovery server required\n")
+		discoveryAvailable = checkDiscoveryAndFallback(*discoveryServer)
+		if !discoveryAvailable {
+			fmt.Printf("Error: Discovery server required but unavailable\n")
+			os.Exit(1)
+		}
+	case "auto":
+		discoveryAvailable = checkDiscoveryAndFallback(*discoveryServer)
+	}
 	
 	if discoveryAvailable {
 		// Try room lookup before creating new room
