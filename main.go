@@ -497,7 +497,7 @@ func deriveKeyInfoLegacy(fileContent []byte, password string) (*KeyInfo, error) 
 
 // Server implementation
 type server struct {
-	pb.UnimplementedChatServiceServer
+	pb.UnimplementedKeykammerServiceServer
 }
 
 func (s *server) SendMessage(ctx context.Context, req *pb.ChatMessage) (*pb.ChatResponse, error) {
@@ -512,7 +512,7 @@ func runServer() {
 	}
 
 	s := grpc.NewServer()
-	pb.RegisterChatServiceServer(s, &server{})
+	pb.RegisterKeykammerServiceServer(s, &server{})
 
 	fmt.Println("Server listening on :9999")
 	if err := s.Serve(lis); err != nil {
@@ -527,7 +527,7 @@ func runClient() {
 	}
 	defer conn.Close()
 
-	client := pb.NewChatServiceClient(conn)
+	client := pb.NewKeykammerServiceClient(conn)
 
 	// Send a single test message
 	resp, err := client.SendMessage(context.Background(), &pb.ChatMessage{
