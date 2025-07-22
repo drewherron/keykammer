@@ -548,6 +548,17 @@ func determineMode(serverAddr string) string {
 	return "client"
 }
 
+// isServerRunning checks if a server is running on the specified local port
+func isServerRunning(port int) bool {
+	timeout := time.Second * 2
+	conn, err := net.DialTimeout("tcp", fmt.Sprintf("localhost:%d", port), timeout)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
+}
+
 func main() {
 	serverMode := flag.Bool("server", false, "Run in server mode")
 	keyfile := flag.String("keyfile", "", "Path to key file (required)")
