@@ -574,19 +574,55 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Print derived values and exit (temporary)
-	fmt.Printf("Room ID: %s\n", keyInfo.RoomID[:16])
-	fmt.Printf("Key length: %d bytes\n", len(keyInfo.EncryptionKey))
-	fmt.Printf("Port: %d\n", *port)
+	// Print basic room information
+	fmt.Printf("Room ID: %s\n", keyInfo.RoomID[:16]+"...")
 	if keyInfo.MaxUsers == 0 {
 		fmt.Printf("Room size: unlimited\n")
 	} else {
 		fmt.Printf("Room size: %d users max\n", keyInfo.MaxUsers)
 	}
+	fmt.Printf("\n")
+	
+	// Check discovery server availability at startup
 	fmt.Printf("Discovery server: %s\n", *discoveryServer)
-	fmt.Printf("Discovery status: %s\n", keyInfo.DiscoveryStatus)
-	serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
-	fmt.Printf("Server address: %s\n", serverAddr)
+	discoveryAvailable := checkDiscoveryAndFallback(*discoveryServer)
+	
+	if discoveryAvailable {
+		// Try room lookup before creating new room
+		fmt.Printf("\nLooking for existing room...\n")
+		existingServerAddr, err := lookupRoomInDiscoveryWithRetry(keyInfo.RoomID, *discoveryServer, DefaultMaxRetries)
+		
+		if err != nil {
+			fmt.Printf("Error during room lookup: %v\n", err)
+			fmt.Printf("Proceeding to create new room...\n")
+		} else if existingServerAddr != "" {
+			// Connect to existing room if lookup succeeds
+			fmt.Printf("\nConnecting to existing room at %s\n", existingServerAddr)
+			fmt.Printf("(In full implementation, would connect as client here)\n")
+			os.Exit(0)
+		} else {
+			// Register room if lookup fails (new room)
+			fmt.Printf("\nNo existing room found, creating new room...\n")
+			serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
+			
+			err = registerWithDiscoveryWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, DefaultMaxRetries)
+			if err != nil {
+				fmt.Printf("Failed to register room: %v\n", err)
+				fmt.Printf("Falling back to localhost-only mode\n")
+			} else {
+				fmt.Printf("\nStarting new room server at %s\n", serverAddr)
+				fmt.Printf("(In full implementation, would start server here)\n")
+			}
+		}
+	} else {
+		// Operating in localhost-only mode
+		fmt.Printf("\nOperating in localhost-only mode\n")
+		serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
+		fmt.Printf("Server address: %s\n", serverAddr)
+		fmt.Printf("(In full implementation, would use local P2P detection here)\n")
+	}
+	
+	fmt.Printf("\nDiscovery flow complete. Exiting...\n")
 	os.Exit(0)
 
 	if *serverMode {
