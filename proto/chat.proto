@@ -9,7 +9,8 @@ service KeykammerService {
 }
 
 message ChatMessage {
-  string content = 1;
+  string room_id = 1;
+  string content = 2;
 }
 
 message ChatResponse {
