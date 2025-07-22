@@ -32,6 +32,7 @@ const (
 	// Discovery server timeout constants
 	DiscoveryTimeout = 10 // seconds
 	DiscoveryRetryDelay = 2 // seconds
+	DefaultMaxRetries = 3 // number of retry attempts
 )
 
 // getFileSize returns the size of a file in bytes
@@ -174,24 +175,10 @@ func setDiscoveryStatus(status DiscoveryStatus) {
 	currentDiscoveryStatus = status
 }
 
-// isDiscoveryServerAvailable tests if the discovery server is reachable
+// isDiscoveryServerAvailable tests if the discovery server is reachable using health check
 func isDiscoveryServerAvailable(discoveryURL string) bool {
-	client := createDiscoveryClient()
-	
-	req, err := http.NewRequest("HEAD", discoveryURL+"/api/health", nil)
-	if err != nil {
-		setDiscoveryStatus(DiscoveryDisconnected)
-		return false
-	}
-	
-	resp, err := client.Do(req)
-	if err != nil {
-		setDiscoveryStatus(DiscoveryDisconnected)
-		return false
-	}
-	defer resp.Body.Close()
-	
-	if resp.StatusCode == http.StatusOK {
+	err := checkDiscoveryHealth(discoveryURL)
+	if err == nil {
 		setDiscoveryStatus(DiscoveryConnected)
 		return true
 	}
@@ -347,6 +334,92 @@ func triggerAutoDelete(roomID, discoveryURL string, currentUsers, maxUsers int) 
 		return deleteRoomFromDiscovery(roomID, discoveryURL)
 	}
 	return nil
+}
+
+// retryDiscoveryOperation retries a discovery server operation with exponential backoff
+func retryDiscoveryOperation(operation func() error, maxRetries int) error {
+	var lastErr error
+	
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		err := operation()
+		if err == nil {
+			if attempt > 0 {
+				fmt.Printf("✓ Discovery operation succeeded after %d retries\n", attempt)
+			}
+			return nil
+		}
+		
+		lastErr = err
+		if attempt < maxRetries {
+			delay := time.Duration(DiscoveryRetryDelay * (1 << attempt)) * time.Second
+			fmt.Printf("⚠ Discovery operation failed (attempt %d/%d): %v\n", attempt+1, maxRetries+1, err)
+			fmt.Printf("  Retrying in %v...\n", delay)
+			time.Sleep(delay)
+		}
+	}
+	
+	fmt.Printf("✗ Discovery operation failed after %d retries: %v\n", maxRetries+1, lastErr)
+	return fmt.Errorf("operation failed after %d retries: %v", maxRetries+1, lastErr)
+}
+
+// checkDiscoveryHealth performs a health check on the discovery server
+func checkDiscoveryHealth(discoveryURL string) error {
+	client := createDiscoveryClient()
+	
+	resp, err := client.Get(discoveryURL + "/api/health")
+	if err != nil {
+		return fmt.Errorf("health check request failed: %v", err)
+	}
+	defer resp.Body.Close()
+	
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("discovery server unhealthy (status: %d)", resp.StatusCode)
+	}
+	
+	// Optionally read and validate response body
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Errorf("failed to read health check response: %v", err)
+	}
+	
+	// Basic validation that server is responding properly
+	if len(body) == 0 {
+		return fmt.Errorf("empty health check response")
+	}
+	
+	return nil
+}
+
+// registerWithDiscoveryWithRetry registers a room with retry logic
+func registerWithDiscoveryWithRetry(keyInfo *KeyInfo, discoveryURL string, port int, maxUsers int, maxRetries int) error {
+	return retryDiscoveryOperation(func() error {
+		return registerWithDiscovery(keyInfo, discoveryURL, port, maxUsers)
+	}, maxRetries)
+}
+
+// lookupRoomInDiscoveryWithRetry looks up a room with retry logic
+func lookupRoomInDiscoveryWithRetry(roomID, discoveryURL string, maxRetries int) (string, error) {
+	var result string
+	var resultErr error
+	
+	err := retryDiscoveryOperation(func() error {
+		addr, err := lookupRoomInDiscovery(roomID, discoveryURL)
+		result = addr
+		resultErr = err
+		return err
+	}, maxRetries)
+	
+	if err != nil {
+		return "", err
+	}
+	return result, resultErr
+}
+
+// deleteRoomFromDiscoveryWithRetry deletes a room with retry logic
+func deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL string, maxRetries int) error {
+	return retryDiscoveryOperation(func() error {
+		return deleteRoomFromDiscovery(roomID, discoveryURL)
+	}, maxRetries)
 }
 
 // checkDiscoveryAndFallback tests discovery server availability and logs fallback mode
