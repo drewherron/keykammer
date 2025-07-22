@@ -4,8 +4,8 @@ package keykammer;
 option go_package = "keykammer/proto";
 
 service KeykammerService {
-  rpc SendMessage(ChatMessage) returns (ChatResponse);
   rpc JoinRoom(JoinRequest) returns (JoinResponse);
+  rpc Chat(stream ChatMessage) returns (stream ChatMessage);
 }
 
 message ChatMessage {
