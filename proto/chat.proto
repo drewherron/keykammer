@@ -1,10 +1,11 @@
 syntax = "proto3";
 
-package chat;
-option go_package = "./proto";
+package keykammer;
+option go_package = "keykammer/proto";
 
-service ChatService {
+service KeykammerService {
   rpc SendMessage(ChatMessage) returns (ChatResponse);
+  rpc JoinRoom(JoinRequest) returns (JoinResponse);
 }
 
 message ChatMessage {
@@ -13,4 +14,15 @@ message ChatMessage {
 
 message ChatResponse {
   bool success = 1;
+}
+
+message JoinRequest {
+  string room_id = 1;
+  int64 version = 2;  // Protocol version
+}
+
+message JoinResponse {
+  bool success = 1;
+  string message = 2;
+  int32 client_count = 3;
 }
