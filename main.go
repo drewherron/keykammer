@@ -13,6 +13,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"time"
 
 	"golang.org/x/crypto/hkdf"
@@ -515,17 +516,50 @@ func (s *server) SendMessage(ctx context.Context, req *pb.ChatMessage) (*pb.Chat
 	return &pb.ChatResponse{Success: true}, nil
 }
 
-func runServer() {
-	lis, err := net.Listen("tcp", ":9999")
+// JoinRoom handles client room join requests (stub implementation)
+func (s *server) JoinRoom(ctx context.Context, req *pb.ChatMessage) (*pb.ChatResponse, error) {
+	fmt.Printf("Client attempting to join room: %s\n", req.Content)
+	
+	// Step 31: Room ID validation
+	if req.Content != s.roomID {
+		fmt.Printf("Room ID mismatch: expected %s, got %s\n", s.roomID[:16]+"...", req.Content[:16]+"...")
+		return &pb.ChatResponse{Success: false}, nil
+	}
+	
+	fmt.Printf("Client successfully joined room\n")
+	return &pb.ChatResponse{Success: true}, nil
+}
+
+// runServer starts a gRPC server for the specified room and port (Steps 32-35)
+func runServer(roomID string, port int) {
+	// Step 33: Server startup logging
+	fmt.Printf("Starting server on port %d for room %s\n", port, roomID[:16]+"...")
+	
+	// Step 32: Create TCP listener and gRPC server
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		log.Fatalf("Failed to listen on port %d: %v", port, err)
 	}
 
-	s := grpc.NewServer()
-	pb.RegisterChatServiceServer(s, &server{})
+	// Create server instance with room ID and port
+	serverInstance := newServer(roomID, port)
+	
+	// Step 35: Graceful shutdown handling
+	grpcServer := grpc.NewServer()
+	pb.RegisterChatServiceServer(grpcServer, serverInstance)
 
-	fmt.Println("Server listening on :9999")
-	if err := s.Serve(lis); err != nil {
+	// Set up signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	
+	go func() {
+		<-sigChan
+		fmt.Printf("\nReceived interrupt signal, shutting down server...\n")
+		grpcServer.GracefulStop()
+	}()
+
+	fmt.Printf("Server ready and listening on :%d\n", port)
+	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
 }
@@ -682,7 +716,11 @@ func main() {
 				fmt.Printf("Falling back to localhost-only mode\n")
 			} else {
 				fmt.Printf("\nStarting new room server at %s\n", serverAddr)
-				fmt.Printf("(In full implementation, would start server here)\n")
+				// Step 34: Start server when in server mode
+				if mode == "server" {
+					runServer(keyInfo.RoomID, *port)
+					return
+				}
 			}
 		}
 	} else {
@@ -690,16 +728,14 @@ func main() {
 		fmt.Printf("\nOperating in localhost-only mode\n")
 		serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
 		fmt.Printf("Server address: %s\n", serverAddr)
-		fmt.Printf("(In full implementation, would use local P2P detection here)\n")
+		
+		// Step 34: Start server when in server mode
+		if mode == "server" {
+			runServer(keyInfo.RoomID, *port)
+			return
+		}
 	}
 	
-	fmt.Printf("\nDiscovery flow complete. Exiting...\n")
-	os.Exit(0)
-
-	if *serverMode {
-		runServer()
-	} else {
-		runClient()
-	}
+	fmt.Printf("\nDiscovery flow complete. Client mode not yet implemented.\n")
 }
 
