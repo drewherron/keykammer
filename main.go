@@ -498,6 +498,8 @@ func deriveKeyInfoLegacy(fileContent []byte, password string) (*KeyInfo, error) 
 // Server implementation
 type server struct {
 	pb.UnimplementedChatServiceServer
+	roomID string
+	port   int
 }
 
 func (s *server) SendMessage(ctx context.Context, req *pb.ChatMessage) (*pb.ChatResponse, error) {
