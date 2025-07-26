@@ -559,6 +559,11 @@ func isServerRunning(port int) bool {
 	return true
 }
 
+// tryConnectAsClient attempts to connect to a server and join a room (stub)
+func tryConnectAsClient(addr string, roomID string) bool {
+	return false
+}
+
 func main() {
 	serverMode := flag.Bool("server", false, "Run in server mode")
 	keyfile := flag.String("keyfile", "", "Path to key file (required)")
