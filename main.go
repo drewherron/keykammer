@@ -625,6 +625,16 @@ func main() {
 	} else {
 		fmt.Printf("Room size: %d users max\n", keyInfo.MaxUsers)
 	}
+	
+	// Determine operation mode
+	var serverAddr string
+	if *serverMode {
+		serverAddr = ""
+	} else {
+		serverAddr = "some-address" // Will be determined later
+	}
+	mode := determineMode(serverAddr)
+	fmt.Printf("Operation mode: %s\n", mode)
 	fmt.Printf("\n")
 	
 	// Check discovery mode and server availability
