@@ -502,6 +502,14 @@ type server struct {
 	port   int
 }
 
+// newServer creates a new server instance
+func newServer(roomID string, port int) *server {
+	return &server{
+		roomID: roomID,
+		port:   port,
+	}
+}
+
 func (s *server) SendMessage(ctx context.Context, req *pb.ChatMessage) (*pb.ChatResponse, error) {
 	fmt.Printf("Received message: %s\n", req.Content)
 	return &pb.ChatResponse{Success: true}, nil
