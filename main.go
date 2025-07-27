@@ -611,9 +611,9 @@ func tryConnectAsClient(addr string, roomID string) bool {
 func main() {
 	serverMode := flag.Bool("server", false, "Run in server mode")
 	keyfile := flag.String("keyfile", "", "Path to key file (required)")
-	port := flag.Int("port", DefaultPort, "Port to use (default: 76667)")
+	port := flag.Int("port", DefaultPort, "Port to use")
 	password := flag.String("password", "", "Optional password for server derivation (empty uses keyfile only)")
-	size := flag.Int("size", 2, "Maximum users per room (default: 2 for maximum privacy, 0 = unlimited)")
+	size := flag.Int("size", 2, "Maximum users per room (2 for maximum privacy, 0 = unlimited)")
 	discoveryServer := flag.String("discovery-server", DefaultDiscoveryServer, "Discovery server URL")
 	discoveryMode := flag.String("discovery-mode", "auto", "Discovery mode: auto, discovery-only, local-only")
 	flag.Parse()
