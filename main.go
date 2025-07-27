@@ -603,6 +603,21 @@ func isServerRunning(port int) bool {
 	return true
 }
 
+// connectToServer establishes a gRPC connection to the specified address
+func connectToServer(addr string) (*grpc.ClientConn, error) {
+	// Add timeout for connection attempt
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	
+	// Use insecure connection for now (will add TLS later)
+	conn, err := grpc.DialContext(ctx, addr, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		return nil, fmt.Errorf("failed to connect to server at %s: %v", addr, err)
+	}
+	
+	return conn, nil
+}
+
 // tryConnectAsClient attempts to connect to a server and join a room (stub)
 func tryConnectAsClient(addr string, roomID string) bool {
 	return false
