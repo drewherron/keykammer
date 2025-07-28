@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
@@ -586,6 +587,18 @@ func determineMode(serverAddr string) string {
 		return "server"
 	}
 	return "client"
+}
+
+// generateClientID creates a unique identifier for each client
+func generateClientID() string {
+	// Generate 8 random bytes (will result in 16 hex characters)
+	bytes := make([]byte, 8)
+	_, err := rand.Read(bytes)
+	if err != nil {
+		// Fallback to timestamp-based ID if random generation fails
+		return fmt.Sprintf("client_%d", time.Now().UnixNano()%1000000000)
+	}
+	return hex.EncodeToString(bytes)
 }
 
 // isServerRunning checks if a server is running on the specified local port
