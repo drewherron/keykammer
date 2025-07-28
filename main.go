@@ -531,7 +531,15 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.ChatMessage) (*pb.ChatRes
 		return &pb.ChatResponse{Success: false}, nil
 	}
 	
-	fmt.Printf("Client successfully joined room\n")
+	// Step 44: Add client to tracking and count clients
+	clientID := generateClientID()
+	
+	s.mutex.Lock()
+	s.clients[clientID] = struct{}{} // Add client to tracking
+	clientCount := len(s.clients)
+	s.mutex.Unlock()
+	
+	fmt.Printf("Client %s successfully joined room (total clients: %d)\n", clientID[:8], clientCount)
 	return &pb.ChatResponse{Success: true}, nil
 }
 
