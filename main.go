@@ -743,10 +743,10 @@ func main() {
 			fmt.Printf("Error during room lookup: %v\n", err)
 			fmt.Printf("Proceeding to create new room...\n")
 		} else if existingServerAddr != "" {
-			// Connect to existing room if lookup succeeds
-			fmt.Printf("\nConnecting to existing room at %s\n", existingServerAddr)
-			fmt.Printf("(In full implementation, would connect as client here)\n")
-			os.Exit(0)
+			// Step 40: Connect to existing room as client
+			fmt.Printf("\nExisting room found! Connecting as client to %s\n", existingServerAddr)
+			runClient(existingServerAddr, keyInfo.RoomID)
+			return
 		} else {
 			// Register room if lookup fails (new room)
 			fmt.Printf("\nNo existing room found, creating new room...\n")
@@ -771,8 +771,15 @@ func main() {
 		serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
 		fmt.Printf("Server address: %s\n", serverAddr)
 		
-		// Step 34: Start server when in server mode
-		if mode == "server" {
+		// Step 40: Check for existing local server first
+		if !*serverMode && isServerRunning(*port) {
+			fmt.Printf("Found existing server on localhost:%d, connecting as client\n", *port)
+			runClient(fmt.Sprintf("localhost:%d", *port), keyInfo.RoomID)
+			return
+		}
+		
+		// Start server if in server mode or no existing server found
+		if mode == "server" || !*serverMode {
 			runServer(keyInfo.RoomID, *port)
 			return
 		}
