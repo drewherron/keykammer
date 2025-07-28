@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"time"
 
 	"golang.org/x/crypto/hkdf"
@@ -500,8 +501,10 @@ func deriveKeyInfoLegacy(fileContent []byte, password string) (*KeyInfo, error) 
 // Server implementation
 type server struct {
 	pb.UnimplementedChatServiceServer
-	roomID string
-	port   int
+	roomID  string
+	port    int
+	clients map[string]interface{}
+	mutex   sync.RWMutex
 }
 
 // newServer creates a new server instance
