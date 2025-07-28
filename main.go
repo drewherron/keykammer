@@ -620,6 +620,9 @@ func connectToServer(addr string) (*grpc.ClientConn, error) {
 
 // tryConnectAsClient attempts to connect to a server and join a room
 func tryConnectAsClient(addr string, roomID string) bool {
+	// Step 38: Add client logging
+	fmt.Printf("Attempting to connect to %s\n", addr)
+	
 	// Create connection to server
 	conn, err := connectToServer(addr)
 	if err != nil {
@@ -643,7 +646,7 @@ func tryConnectAsClient(addr string, roomID string) bool {
 	}
 	
 	if resp.Success {
-		fmt.Printf("Successfully joined room\n")
+		fmt.Printf("Successfully joined room %s\n", roomID[:16]+"...")
 		return true
 	} else {
 		fmt.Printf("Room join rejected by server\n")
