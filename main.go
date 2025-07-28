@@ -618,9 +618,37 @@ func connectToServer(addr string) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
-// tryConnectAsClient attempts to connect to a server and join a room (stub)
+// tryConnectAsClient attempts to connect to a server and join a room
 func tryConnectAsClient(addr string, roomID string) bool {
-	return false
+	// Create connection to server
+	conn, err := connectToServer(addr)
+	if err != nil {
+		fmt.Printf("Failed to connect to server: %v\n", err)
+		return false
+	}
+	defer conn.Close()
+	
+	// Create gRPC client
+	client := pb.NewChatServiceClient(conn)
+	
+	// Call JoinRoom RPC (using ChatMessage as request type due to proto limitations)
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	
+	// Use the roomID as content since we don't have proper JoinRequest type yet
+	resp, err := client.SendMessage(ctx, &pb.ChatMessage{Content: roomID})
+	if err != nil {
+		fmt.Printf("Failed to join room: %v\n", err)
+		return false
+	}
+	
+	if resp.Success {
+		fmt.Printf("Successfully joined room\n")
+		return true
+	} else {
+		fmt.Printf("Room join rejected by server\n")
+		return false
+	}
 }
 
 func main() {
