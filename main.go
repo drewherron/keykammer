@@ -510,8 +510,9 @@ type server struct {
 // newServer creates a new server instance
 func newServer(roomID string, port int) *server {
 	return &server{
-		roomID: roomID,
-		port:   port,
+		roomID:  roomID,
+		port:    port,
+		clients: make(map[string]interface{}),
 	}
 }
 
