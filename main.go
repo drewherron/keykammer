@@ -564,24 +564,20 @@ func runServer(roomID string, port int) {
 	}
 }
 
-func runClient() {
-	conn, err := grpc.Dial("localhost:9999", grpc.WithInsecure())
-	if err != nil {
-		log.Fatalf("Failed to connect: %v", err)
+// runClient handles main client logic for connecting to a server
+func runClient(serverAddr string, roomID string) {
+	fmt.Printf("Starting client mode\n")
+	
+	// Try to connect to the server and join the room
+	success := tryConnectAsClient(serverAddr, roomID)
+	
+	if success {
+		fmt.Printf("Client connected successfully to room\n")
+		// In full implementation, would start chat loop here
+	} else {
+		fmt.Printf("Failed to connect to server or join room\n")
+		os.Exit(1)
 	}
-	defer conn.Close()
-
-	client := pb.NewChatServiceClient(conn)
-
-	// Send a single test message
-	resp, err := client.SendMessage(context.Background(), &pb.ChatMessage{
-		Content: "Hello from client!",
-	})
-	if err != nil {
-		log.Fatalf("Failed to send message: %v", err)
-	}
-
-	fmt.Printf("Message sent successfully: %v\n", resp.Success)
 }
 
 // determineMode returns "server" if serverAddr is empty, "client" if provided
