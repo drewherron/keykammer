@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/rand"
@@ -15,6 +16,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"time"
 
@@ -611,6 +613,18 @@ func generateClientID() string {
 		return fmt.Sprintf("client_%d", time.Now().UnixNano()%1000000000)
 	}
 	return hex.EncodeToString(bytes)
+}
+
+// promptUsername prompts the user to enter a username
+func promptUsername() string {
+	fmt.Print("Enter username: ")
+	reader := bufio.NewReader(os.Stdin)
+	username, err := reader.ReadString('\n')
+	if err != nil {
+		log.Printf("Error reading username: %v", err)
+		return "anonymous"
+	}
+	return strings.TrimSpace(username)
 }
 
 // isServerRunning checks if a server is running on the specified local port
