@@ -13,6 +13,7 @@ message ChatMessage {
   bytes encrypted_content = 2;
   int64 timestamp = 3;
   string sender_id = 4;
+  string username = 5;
 }
 
 message ChatResponse {
