@@ -635,8 +635,21 @@ func runServer(roomID string, port int) {
 func runClient(serverAddr string, roomID string) {
 	fmt.Printf("Starting client mode\n")
 	
+	// Step 55: Prompt for username with validation and retry
+	var username string
+	for {
+		username = promptUsername()
+		if err := validateUsername(username); err != nil {
+			fmt.Printf("Invalid username: %v\n", err)
+			continue
+		}
+		break
+	}
+	
+	fmt.Printf("Connecting as user: %s\n", username)
+	
 	// Try to connect to the server and join the room
-	success := tryConnectAsClient(serverAddr, roomID)
+	success := tryConnectAsClient(serverAddr, roomID, username)
 	
 	if success {
 		fmt.Printf("Client connected successfully to room\n")
@@ -724,9 +737,9 @@ func connectToServer(addr string) (*grpc.ClientConn, error) {
 }
 
 // tryConnectAsClient attempts to connect to a server and join a room
-func tryConnectAsClient(addr string, roomID string) bool {
+func tryConnectAsClient(addr string, roomID string, username string) bool {
 	// Step 38: Add client logging
-	fmt.Printf("Attempting to connect to %s\n", addr)
+	fmt.Printf("Attempting to connect to %s as user %s\n", addr, username)
 	
 	// Create connection to server
 	conn, err := connectToServer(addr)
@@ -744,6 +757,7 @@ func tryConnectAsClient(addr string, roomID string) bool {
 	defer cancel()
 	
 	// Use the roomID as content since we don't have proper JoinRequest type yet
+	// TODO: When proto files are regenerated, use JoinRequest with username field
 	resp, err := client.SendMessage(ctx, &pb.ChatMessage{Content: roomID})
 	if err != nil {
 		fmt.Printf("Failed to join room: %v\n", err)
