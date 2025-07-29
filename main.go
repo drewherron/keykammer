@@ -627,6 +627,24 @@ func promptUsername() string {
 	return strings.TrimSpace(username)
 }
 
+// validateUsername ensures the username meets requirements
+func validateUsername(username string) error {
+	if len(username) < 1 {
+		return fmt.Errorf("username must be at least 1 character")
+	}
+	if len(username) > 20 {
+		return fmt.Errorf("username must be 20 characters or less")
+	}
+	// Check for invalid characters (allow alphanumeric, underscore, dash)
+	for _, char := range username {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || 
+			 (char >= '0' && char <= '9') || char == '_' || char == '-') {
+			return fmt.Errorf("username can only contain letters, numbers, underscore, and dash")
+		}
+	}
+	return nil
+}
+
 // isServerRunning checks if a server is running on the specified local port
 func isServerRunning(port int) bool {
 	timeout := time.Second * 2
