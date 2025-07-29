@@ -29,4 +29,5 @@ message JoinResponse {
   bool success = 1;
   string message = 2;
   int32 client_count = 3;
+  repeated string taken_usernames = 4;
 }

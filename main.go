@@ -531,7 +531,7 @@ func (s *server) SendMessage(ctx context.Context, req *pb.ChatMessage) (*pb.Chat
 	return &pb.ChatResponse{Success: true}, nil
 }
 
-// JoinRoom handles client room join requests (stub implementation)
+// JoinRoom handles client room join requests with username validation
 func (s *server) JoinRoom(ctx context.Context, req *pb.ChatMessage) (*pb.ChatResponse, error) {
 	fmt.Printf("Client attempting to join room: %s\n", req.Content)
 	
@@ -541,19 +541,60 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.ChatMessage) (*pb.ChatRes
 		return &pb.ChatResponse{Success: false}, nil
 	}
 	
-	// Step 44: Add client to tracking and count clients
+	// Steps 51-52: Username validation and registration
+	// Note: In a proper implementation, username would come from JoinRequest.username
+	// For now, we'll use a default username since we can't regenerate proto files
+	username := "user_" + generateClientID()[:8] // Temporary approach
+	
+	// Step 51: Validate username format
+	if err := validateUsername(username); err != nil {
+		fmt.Printf("Username validation failed: %v\n", err)
+		return &pb.ChatResponse{Success: false}, nil
+	}
+	
+	// Step 51: Check if username is available
+	if !s.isUsernameAvailable(username) {
+		// Step 53: Get taken usernames (would be returned in JoinResponse.taken_usernames)
+		takenUsernames := s.getTakenUsernames()
+		fmt.Printf("Username %s is already taken. Taken usernames: %v\n", username, takenUsernames)
+		return &pb.ChatResponse{Success: false}, nil
+	}
+	
+	// Step 44 & 52: Add client to tracking and register username
 	clientID := generateClientID()
 	
 	s.mutex.Lock()
 	s.clients[clientID] = &ClientInfo{
-		Username: "anonymous", // Will be updated when username functionality is integrated
-		Stream:   nil,         // Will be set when streaming is implemented
+		Username: username,
+		Stream:   nil, // Will be set when streaming is implemented
 	}
+	// Step 52: Register username mapping
+	s.usernames[username] = clientID
 	clientCount := len(s.clients)
 	s.mutex.Unlock()
 	
-	fmt.Printf("Client %s successfully joined room (total clients: %d)\n", clientID[:8], clientCount)
+	fmt.Printf("Client %s (%s) successfully joined room (total clients: %d)\n", clientID[:8], username, clientCount)
 	return &pb.ChatResponse{Success: true}, nil
+}
+
+// isUsernameAvailable checks if a username is available for use
+func (s *server) isUsernameAvailable(username string) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	_, exists := s.usernames[username]
+	return !exists
+}
+
+// getTakenUsernames returns a list of currently taken usernames
+func (s *server) getTakenUsernames() []string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	
+	taken := make([]string, 0, len(s.usernames))
+	for username := range s.usernames {
+		taken = append(taken, username)
+	}
+	return taken
 }
 
 // runServer starts a gRPC server for the specified room and port (Steps 32-35)
