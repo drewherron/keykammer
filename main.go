@@ -500,12 +500,18 @@ func deriveKeyInfoLegacy(fileContent []byte, password string) (*KeyInfo, error) 
 	return deriveKeyInfo(fileContent, password, 2) // Default to 2 users for backward compatibility
 }
 
+// ClientInfo stores information about a connected client
+type ClientInfo struct {
+	Username string
+	Stream   interface{} // Will be pb.KeykammerService_ChatServer when streaming is implemented
+}
+
 // Server implementation
 type server struct {
 	pb.UnimplementedChatServiceServer
 	roomID  string
 	port    int
-	clients map[string]interface{}
+	clients map[string]*ClientInfo
 	mutex   sync.RWMutex
 }
 
@@ -514,7 +520,7 @@ func newServer(roomID string, port int) *server {
 	return &server{
 		roomID:  roomID,
 		port:    port,
-		clients: make(map[string]interface{}),
+		clients: make(map[string]*ClientInfo),
 	}
 }
 
@@ -537,7 +543,10 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.ChatMessage) (*pb.ChatRes
 	clientID := generateClientID()
 	
 	s.mutex.Lock()
-	s.clients[clientID] = struct{}{} // Add client to tracking
+	s.clients[clientID] = &ClientInfo{
+		Username: "anonymous", // Will be updated when username functionality is integrated
+		Stream:   nil,         // Will be set when streaming is implemented
+	}
 	clientCount := len(s.clients)
 	s.mutex.Unlock()
 	
