@@ -509,18 +509,20 @@ type ClientInfo struct {
 // Server implementation
 type server struct {
 	pb.UnimplementedChatServiceServer
-	roomID  string
-	port    int
-	clients map[string]*ClientInfo
-	mutex   sync.RWMutex
+	roomID    string
+	port      int
+	clients   map[string]*ClientInfo
+	usernames map[string]string // username -> clientID
+	mutex     sync.RWMutex
 }
 
 // newServer creates a new server instance
 func newServer(roomID string, port int) *server {
 	return &server{
-		roomID:  roomID,
-		port:    port,
-		clients: make(map[string]*ClientInfo),
+		roomID:    roomID,
+		port:      port,
+		clients:   make(map[string]*ClientInfo),
+		usernames: make(map[string]string),
 	}
 }
 
