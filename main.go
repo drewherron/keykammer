@@ -527,7 +527,24 @@ func newServer(roomID string, port int) *server {
 }
 
 func (s *server) SendMessage(ctx context.Context, req *pb.ChatMessage) (*pb.ChatResponse, error) {
-	fmt.Printf("Received message: %s\n", req.Content)
+	// Steps 59-60: Look up username and broadcast with username
+	s.mutex.RLock()
+	var senderUsername string
+	// Find username by looking through clients (in real implementation, we'd have sender ID)
+	for _, clientInfo := range s.clients {
+		// For now, use the first available username as placeholder
+		senderUsername = clientInfo.Username
+		break
+	}
+	if senderUsername == "" {
+		senderUsername = "unknown"
+	}
+	s.mutex.RUnlock()
+	
+	// Step 61: Display message with username
+	displayMessage(senderUsername, req.Content)
+	
+	// Step 60: In full implementation, would broadcast to all clients with username
 	return &pb.ChatResponse{Success: true}, nil
 }
 
@@ -535,16 +552,27 @@ func (s *server) SendMessage(ctx context.Context, req *pb.ChatMessage) (*pb.Chat
 func (s *server) JoinRoom(ctx context.Context, req *pb.ChatMessage) (*pb.ChatResponse, error) {
 	fmt.Printf("Client attempting to join room: %s\n", req.Content)
 	
-	// Step 31: Room ID validation
-	if req.Content != s.roomID {
-		fmt.Printf("Room ID mismatch: expected %s, got %s\n", s.roomID[:16]+"...", req.Content[:16]+"...")
-		return &pb.ChatResponse{Success: false}, nil
+	// Step 56: Parse encoded roomID and username from content
+	var roomID, username string
+	if strings.Contains(req.Content, "|username:") {
+		parts := strings.Split(req.Content, "|username:")
+		if len(parts) == 2 {
+			roomID = parts[0]
+			username = parts[1]
+		} else {
+			roomID = req.Content
+			username = "user_" + generateClientID()[:8]
+		}
+	} else {
+		roomID = req.Content
+		username = "user_" + generateClientID()[:8]
 	}
 	
-	// Steps 51-52: Username validation and registration
-	// Note: In a proper implementation, username would come from JoinRequest.username
-	// For now, we'll use a default username since we can't regenerate proto files
-	username := "user_" + generateClientID()[:8] // Temporary approach
+	// Step 31: Room ID validation
+	if roomID != s.roomID {
+		fmt.Printf("Room ID mismatch: expected %s, got %s\n", s.roomID[:16]+"...", roomID[:16]+"...")
+		return &pb.ChatResponse{Success: false}, nil
+	}
 	
 	// Step 51: Validate username format
 	if err := validateUsername(username); err != nil {
@@ -597,6 +625,12 @@ func (s *server) getTakenUsernames() []string {
 	return taken
 }
 
+// displayMessage formats and displays a chat message with username (Step 61)
+func displayMessage(username, message string) {
+	timestamp := time.Now().Format("15:04:05")
+	fmt.Printf("[%s] %s: %s\n", timestamp, username, message)
+}
+
 // runServer starts a gRPC server for the specified room and port (Steps 32-35)
 func runServer(roomID string, port int) {
 	// Step 33: Server startup logging
@@ -635,29 +669,38 @@ func runServer(roomID string, port int) {
 func runClient(serverAddr string, roomID string) {
 	fmt.Printf("Starting client mode\n")
 	
-	// Step 55: Prompt for username with validation and retry
+	// Steps 56-57: Username prompt with retry logic for taken usernames
 	var username string
-	for {
-		username = promptUsername()
-		if err := validateUsername(username); err != nil {
-			fmt.Printf("Invalid username: %v\n", err)
-			continue
+	maxAttempts := 3
+	
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// Get and validate username format
+		for {
+			username = promptUsername()
+			if err := validateUsername(username); err != nil {
+				fmt.Printf("Invalid username: %v\n", err)
+				continue
+			}
+			break
 		}
-		break
+		
+		fmt.Printf("Connecting as user: %s (attempt %d/%d)\n", username, attempt, maxAttempts)
+		
+		// Step 56: Try to connect with username, Step 57: handle retries
+		success := tryConnectAsClient(serverAddr, roomID, username)
+		
+		if success {
+			// Step 58: Store username in client state (conceptually - would be in client struct)
+			fmt.Printf("Client connected successfully to room as %s\n", username)
+			// In full implementation, would store username and start chat loop here
+			return
+		} else if attempt < maxAttempts {
+			fmt.Printf("Username may be taken or connection failed. Try a different username.\n")
+		}
 	}
 	
-	fmt.Printf("Connecting as user: %s\n", username)
-	
-	// Try to connect to the server and join the room
-	success := tryConnectAsClient(serverAddr, roomID, username)
-	
-	if success {
-		fmt.Printf("Client connected successfully to room\n")
-		// In full implementation, would start chat loop here
-	} else {
-		fmt.Printf("Failed to connect to server or join room\n")
-		os.Exit(1)
-	}
+	fmt.Printf("Failed to join room after %d attempts\n", maxAttempts)
+	os.Exit(1)
 }
 
 // determineMode returns "server" if serverAddr is empty, "client" if provided
@@ -756,9 +799,12 @@ func tryConnectAsClient(addr string, roomID string, username string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
+	// Step 56: Send username in join request
 	// Use the roomID as content since we don't have proper JoinRequest type yet
-	// TODO: When proto files are regenerated, use JoinRequest with username field
-	resp, err := client.SendMessage(ctx, &pb.ChatMessage{Content: roomID})
+	// TODO: When proto files are regenerated, use JoinRequest{roomID, version, username}
+	// For now, we'll encode both in the content field temporarily
+	joinContent := fmt.Sprintf("%s|username:%s", roomID, username)
+	resp, err := client.SendMessage(ctx, &pb.ChatMessage{Content: joinContent})
 	if err != nil {
 		fmt.Printf("Failed to join room: %v\n", err)
 		return false
