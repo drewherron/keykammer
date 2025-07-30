@@ -541,6 +541,12 @@ func (s *server) SendMessage(ctx context.Context, req *pb.ChatMessage) (*pb.Chat
 	}
 	s.mutex.RUnlock()
 	
+	// Step 64: Handle special commands
+	if req.Content == "/users" || req.Content == "/who" {
+		s.handleUserListCommand()
+		return &pb.ChatResponse{Success: true}, nil
+	}
+	
 	// Step 61: Display message with username
 	displayMessage(senderUsername, req.Content)
 	
@@ -651,6 +657,29 @@ func (s *server) removeClient(clientID string) {
 	// Log the disconnect
 	fmt.Printf("Client %s (%s) left the room (remaining clients: %d)\n", 
 		clientID[:8], username, len(s.clients))
+}
+
+// getUserList returns a formatted list of connected users (Step 64)
+func (s *server) getUserList() string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	
+	if len(s.clients) == 0 {
+		return "No users currently in the room."
+	}
+	
+	var userList []string
+	for _, clientInfo := range s.clients {
+		userList = append(userList, clientInfo.Username)
+	}
+	
+	return fmt.Sprintf("Users in room (%d): %s", len(s.clients), strings.Join(userList, ", "))
+}
+
+// handleUserListCommand processes /users or /who commands (Step 64)
+func (s *server) handleUserListCommand() {
+	userList := s.getUserList()
+	displayMessage("System", userList)
 }
 
 // displayMessage formats and displays a chat message with username (Step 61)
