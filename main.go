@@ -625,6 +625,34 @@ func (s *server) getTakenUsernames() []string {
 	return taken
 }
 
+// removeClient cleans up a client on disconnect (Step 62)
+// In full implementation, this would be called when:
+// - gRPC stream disconnects
+// - Client explicitly leaves  
+// - Heartbeat/keepalive fails
+func (s *server) removeClient(clientID string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	
+	// Get client info before removing
+	clientInfo, exists := s.clients[clientID]
+	if !exists {
+		return
+	}
+	
+	username := clientInfo.Username
+	
+	// Remove from clients map
+	delete(s.clients, clientID)
+	
+	// Remove from usernames map
+	delete(s.usernames, username)
+	
+	// Log the disconnect
+	fmt.Printf("Client %s (%s) left the room (remaining clients: %d)\n", 
+		clientID[:8], username, len(s.clients))
+}
+
 // displayMessage formats and displays a chat message with username (Step 61)
 func displayMessage(username, message string) {
 	timestamp := time.Now().Format("15:04:05")
