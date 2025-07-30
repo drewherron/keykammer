@@ -508,7 +508,7 @@ type ClientInfo struct {
 
 // Server implementation
 type server struct {
-	pb.UnimplementedChatServiceServer
+	pb.UnimplementedKeykammerServiceServer
 	roomID    string
 	port      int
 	clients   map[string]*ClientInfo
@@ -526,72 +526,50 @@ func newServer(roomID string, port int) *server {
 	}
 }
 
-func (s *server) SendMessage(ctx context.Context, req *pb.ChatMessage) (*pb.ChatResponse, error) {
-	// Steps 59-60: Look up username and broadcast with username
-	s.mutex.RLock()
-	var senderUsername string
-	// Find username by looking through clients (in real implementation, we'd have sender ID)
-	for _, clientInfo := range s.clients {
-		// For now, use the first available username as placeholder
-		senderUsername = clientInfo.Username
-		break
-	}
-	if senderUsername == "" {
-		senderUsername = "unknown"
-	}
-	s.mutex.RUnlock()
-	
-	// Step 64: Handle special commands
-	if req.Content == "/users" || req.Content == "/who" {
-		s.handleUserListCommand()
-		return &pb.ChatResponse{Success: true}, nil
-	}
-	
-	// Step 61: Display message with username
-	displayMessage(senderUsername, req.Content)
-	
-	// Step 60: In full implementation, would broadcast to all clients with username
-	return &pb.ChatResponse{Success: true}, nil
+// Chat handles bidirectional streaming chat (Step 65)
+func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
+	// Step 65: Skeleton implementation - just return nil for now
+	// In full implementation, this would:
+	// - Validate initial message with room ID
+	// - Register client stream for broadcasting
+	// - Handle incoming messages and broadcast to other clients
+	return nil
 }
 
 // JoinRoom handles client room join requests with username validation
-func (s *server) JoinRoom(ctx context.Context, req *pb.ChatMessage) (*pb.ChatResponse, error) {
-	fmt.Printf("Client attempting to join room: %s\n", req.Content)
-	
-	// Step 56: Parse encoded roomID and username from content
-	var roomID, username string
-	if strings.Contains(req.Content, "|username:") {
-		parts := strings.Split(req.Content, "|username:")
-		if len(parts) == 2 {
-			roomID = parts[0]
-			username = parts[1]
-		} else {
-			roomID = req.Content
-			username = "user_" + generateClientID()[:8]
-		}
-	} else {
-		roomID = req.Content
-		username = "user_" + generateClientID()[:8]
-	}
+func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinResponse, error) {
+	fmt.Printf("Client attempting to join room: %s with username: %s\n", req.RoomId, req.Username)
 	
 	// Step 31: Room ID validation
-	if roomID != s.roomID {
-		fmt.Printf("Room ID mismatch: expected %s, got %s\n", s.roomID[:16]+"...", roomID[:16]+"...")
-		return &pb.ChatResponse{Success: false}, nil
+	if req.RoomId != s.roomID {
+		fmt.Printf("Room ID mismatch: expected %s, got %s\n", s.roomID[:16]+"...", req.RoomId[:16]+"...")
+		return &pb.JoinResponse{
+			Success: false,
+			Message: "Invalid room ID",
+		}, nil
 	}
+	
+	username := req.Username
 	
 	// Step 51: Validate username format
 	if err := validateUsername(username); err != nil {
 		fmt.Printf("Username validation failed: %v\n", err)
-		return &pb.ChatResponse{Success: false}, nil
+		return &pb.JoinResponse{
+			Success: false,
+			Message: fmt.Sprintf("Invalid username: %v", err),
+		}, nil
 	}
 	
 	// Step 51: Check if username is available
 	if !s.isUsernameAvailable(username) {
-		// Step 53: Get taken usernames (would be returned in JoinResponse.taken_usernames)
+		// Step 53: Get taken usernames and return them in response
 		takenUsernames := s.getTakenUsernames()
 		fmt.Printf("Username %s is already taken. Taken usernames: %v\n", username, takenUsernames)
-		return &pb.ChatResponse{Success: false}, nil
+		return &pb.JoinResponse{
+			Success:        false,
+			Message:        "Username is already taken",
+			TakenUsernames: takenUsernames,
+		}, nil
 	}
 	
 	// Step 44 & 52: Add client to tracking and register username
@@ -608,7 +586,11 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.ChatMessage) (*pb.ChatRes
 	s.mutex.Unlock()
 	
 	fmt.Printf("Client %s (%s) successfully joined room (total clients: %d)\n", clientID[:8], username, clientCount)
-	return &pb.ChatResponse{Success: true}, nil
+	return &pb.JoinResponse{
+		Success:     true,
+		Message:     "Successfully joined room",
+		ClientCount: int32(clientCount),
+	}, nil
 }
 
 // isUsernameAvailable checks if a username is available for use
@@ -704,7 +686,7 @@ func runServer(roomID string, port int) {
 	
 	// Step 35: Graceful shutdown handling
 	grpcServer := grpc.NewServer()
-	pb.RegisterChatServiceServer(grpcServer, serverInstance)
+	pb.RegisterKeykammerServiceServer(grpcServer, serverInstance)
 
 	// Set up signal handling for graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -850,18 +832,18 @@ func tryConnectAsClient(addr string, roomID string, username string) bool {
 	defer conn.Close()
 	
 	// Create gRPC client
-	client := pb.NewChatServiceClient(conn)
+	client := pb.NewKeykammerServiceClient(conn)
 	
 	// Call JoinRoom RPC (using ChatMessage as request type due to proto limitations)
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
-	// Step 56: Send username in join request
-	// Use the roomID as content since we don't have proper JoinRequest type yet
-	// TODO: When proto files are regenerated, use JoinRequest{roomID, version, username}
-	// For now, we'll encode both in the content field temporarily
-	joinContent := fmt.Sprintf("%s|username:%s", roomID, username)
-	resp, err := client.SendMessage(ctx, &pb.ChatMessage{Content: joinContent})
+	// Step 56: Send username in join request using proper JoinRequest
+	resp, err := client.JoinRoom(ctx, &pb.JoinRequest{
+		RoomId:   roomID,
+		Version:  1,
+		Username: username,
+	})
 	if err != nil {
 		fmt.Printf("Failed to join room: %v\n", err)
 		return false
