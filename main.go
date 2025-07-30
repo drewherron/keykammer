@@ -509,26 +509,30 @@ type ClientInfo struct {
 // Server implementation
 type server struct {
 	pb.UnimplementedKeykammerServiceServer
-	roomID    string
-	port      int
-	clients   map[string]*ClientInfo
-	usernames map[string]string // username -> clientID
-	mutex     sync.RWMutex
+	roomID       string
+	port         int
+	maxUsers     int // Maximum users allowed in room (0 = unlimited)
+	currentUsers int // Current number of connected users
+	clients      map[string]*ClientInfo
+	usernames    map[string]string // username -> clientID
+	mutex        sync.RWMutex
 }
 
 // newServer creates a new server instance
-func newServer(roomID string, port int) *server {
+func newServer(roomID string, port int, maxUsers int) *server {
 	return &server{
-		roomID:    roomID,
-		port:      port,
-		clients:   make(map[string]*ClientInfo),
-		usernames: make(map[string]string),
+		roomID:       roomID,
+		port:         port,
+		maxUsers:     maxUsers,
+		currentUsers: 0,
+		clients:      make(map[string]*ClientInfo),
+		usernames:    make(map[string]string),
 	}
 }
 
-// Chat handles bidirectional streaming chat (Step 65)
+// Chat handles bidirectional streaming chat
 func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
-	// Step 65: Skeleton implementation - just return nil for now
+	// Skeleton implementation - just return nil for now
 	// In full implementation, this would:
 	// - Validate initial message with room ID
 	// - Register client stream for broadcasting
@@ -540,7 +544,7 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinResponse, error) {
 	fmt.Printf("Client attempting to join room: %s with username: %s\n", req.RoomId, req.Username)
 	
-	// Step 31: Room ID validation
+	// Room ID validation
 	if req.RoomId != s.roomID {
 		fmt.Printf("Room ID mismatch: expected %s, got %s\n", s.roomID[:16]+"...", req.RoomId[:16]+"...")
 		return &pb.JoinResponse{
@@ -551,7 +555,7 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 	
 	username := req.Username
 	
-	// Step 51: Validate username format
+	// Validate username format
 	if err := validateUsername(username); err != nil {
 		fmt.Printf("Username validation failed: %v\n", err)
 		return &pb.JoinResponse{
@@ -560,9 +564,9 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 		}, nil
 	}
 	
-	// Step 51: Check if username is available
+	// Check if username is available
 	if !s.isUsernameAvailable(username) {
-		// Step 53: Get taken usernames and return them in response
+		// Get taken usernames and return them in response
 		takenUsernames := s.getTakenUsernames()
 		fmt.Printf("Username %s is already taken. Taken usernames: %v\n", username, takenUsernames)
 		return &pb.JoinResponse{
@@ -572,7 +576,7 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 		}, nil
 	}
 	
-	// Step 44 & 52: Add client to tracking and register username
+	// Add client to tracking and register username
 	clientID := generateClientID()
 	
 	s.mutex.Lock()
@@ -580,7 +584,7 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 		Username: username,
 		Stream:   nil, // Will be set when streaming is implemented
 	}
-	// Step 52: Register username mapping
+	// Register username mapping
 	s.usernames[username] = clientID
 	clientCount := len(s.clients)
 	s.mutex.Unlock()
@@ -670,21 +674,21 @@ func displayMessage(username, message string) {
 	fmt.Printf("[%s] %s: %s\n", timestamp, username, message)
 }
 
-// runServer starts a gRPC server for the specified room and port (Steps 32-35)
-func runServer(roomID string, port int) {
-	// Step 33: Server startup logging
+// runServer starts a gRPC server for the specified room and port
+func runServer(roomID string, port int, maxUsers int) {
+	// Server startup logging
 	fmt.Printf("Starting server on port %d for room %s\n", port, roomID[:16]+"...")
 	
-	// Step 32: Create TCP listener and gRPC server
+	// Create TCP listener and gRPC server
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		log.Fatalf("Failed to listen on port %d: %v", port, err)
 	}
 
-	// Create server instance with room ID and port
-	serverInstance := newServer(roomID, port)
+	// Create server instance with room ID, port, and max users
+	serverInstance := newServer(roomID, port, maxUsers)
 	
-	// Step 35: Graceful shutdown handling
+	// Graceful shutdown handling
 	grpcServer := grpc.NewServer()
 	pb.RegisterKeykammerServiceServer(grpcServer, serverInstance)
 
@@ -708,7 +712,7 @@ func runServer(roomID string, port int) {
 func runClient(serverAddr string, roomID string) {
 	fmt.Printf("Starting client mode\n")
 	
-	// Steps 56-57: Username prompt with retry logic for taken usernames
+	// Username prompt with retry logic for taken usernames
 	var username string
 	maxAttempts := 3
 	
@@ -725,11 +729,11 @@ func runClient(serverAddr string, roomID string) {
 		
 		fmt.Printf("Connecting as user: %s (attempt %d/%d)\n", username, attempt, maxAttempts)
 		
-		// Step 56: Try to connect with username, Step 57: handle retries
+		// Try to connect with username and handle retries
 		success := tryConnectAsClient(serverAddr, roomID, username)
 		
 		if success {
-			// Step 58: Store username in client state (conceptually - would be in client struct)
+			// Store username in client state (conceptually - would be in client struct)
 			fmt.Printf("Client connected successfully to room as %s\n", username)
 			// In full implementation, would store username and start chat loop here
 			return
@@ -820,7 +824,7 @@ func connectToServer(addr string) (*grpc.ClientConn, error) {
 
 // tryConnectAsClient attempts to connect to a server and join a room
 func tryConnectAsClient(addr string, roomID string, username string) bool {
-	// Step 38: Add client logging
+	// Add client logging
 	fmt.Printf("Attempting to connect to %s as user %s\n", addr, username)
 	
 	// Create connection to server
@@ -838,7 +842,7 @@ func tryConnectAsClient(addr string, roomID string, username string) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 	
-	// Step 56: Send username in join request using proper JoinRequest
+	// Send username in join request using proper JoinRequest
 	resp, err := client.JoinRoom(ctx, &pb.JoinRequest{
 		RoomId:   roomID,
 		Version:  1,
@@ -951,7 +955,7 @@ func main() {
 			fmt.Printf("Error during room lookup: %v\n", err)
 			fmt.Printf("Proceeding to create new room...\n")
 		} else if existingServerAddr != "" {
-			// Step 40: Connect to existing room as client
+			// Connect to existing room as client
 			fmt.Printf("\nExisting room found! Connecting as client to %s\n", existingServerAddr)
 			runClient(existingServerAddr, keyInfo.RoomID)
 			return
@@ -966,9 +970,9 @@ func main() {
 				fmt.Printf("Falling back to localhost-only mode\n")
 			} else {
 				fmt.Printf("\nStarting new room server at %s\n", serverAddr)
-				// Step 34: Start server when in server mode
+				// Start server when in server mode
 				if mode == "server" {
-					runServer(keyInfo.RoomID, *port)
+					runServer(keyInfo.RoomID, *port, *size)
 					return
 				}
 			}
@@ -979,7 +983,7 @@ func main() {
 		serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
 		fmt.Printf("Server address: %s\n", serverAddr)
 		
-		// Step 40: Check for existing local server first
+		// Check for existing local server first
 		if !*serverMode && isServerRunning(*port) {
 			fmt.Printf("Found existing server on localhost:%d, connecting as client\n", *port)
 			runClient(fmt.Sprintf("localhost:%d", *port), keyInfo.RoomID)
@@ -988,7 +992,7 @@ func main() {
 		
 		// Start server if in server mode or no existing server found
 		if mode == "server" || !*serverMode {
-			runServer(keyInfo.RoomID, *port)
+			runServer(keyInfo.RoomID, *port, *size)
 			return
 		}
 	}
