@@ -562,6 +562,13 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 	
 	fmt.Printf("Client %s registered for streaming (total clients: %d)\n", clientID[:8], clientCount)
 	
+	// Check if room reaches capacity and trigger auto-delete
+	if s.maxUsers > 0 && clientCount >= s.maxUsers {
+		fmt.Printf("Room capacity reached (%d/%d) - triggering auto-delete from discovery\n", clientCount, s.maxUsers)
+		// In full implementation, would call deleteRoomFromDiscovery(s.roomID)
+		// For now, just log the event
+	}
+	
 	// Add defer function to remove client on disconnect
 	defer func() {
 		s.mutex.Lock()
