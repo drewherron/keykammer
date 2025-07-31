@@ -600,7 +600,8 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 // broadcast sends a message to all connected clients except the sender
 func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
 	s.mutex.RLock()
-	defer s.mutex.RUnlock()
+	
+	var failedClients []string
 	
 	// Iterate through all clients
 	for clientID, clientInfo := range s.clients {
@@ -619,11 +620,28 @@ func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
 			err := stream.Send(msg)
 			if err != nil {
 				fmt.Printf("Failed to send message to client %s: %v\n", clientID[:8], err)
-				// Don't remove failed clients yet - that will be handled in Step 72
+				// Mark client for removal
+				failedClients = append(failedClients, clientID)
 			} else {
 				fmt.Printf("Broadcasted message to client %s\n", clientID[:8])
 			}
 		}
+	}
+	
+	s.mutex.RUnlock()
+	
+	// Remove failed clients in a goroutine to avoid deadlock
+	if len(failedClients) > 0 {
+		go func() {
+			s.mutex.Lock()
+			defer s.mutex.Unlock()
+			
+			for _, clientID := range failedClients {
+				delete(s.clients, clientID)
+				s.currentUsers--
+				fmt.Printf("Removed failed client %s (remaining clients: %d)\n", clientID[:8], s.currentUsers)
+			}
+		}()
 	}
 }
 
