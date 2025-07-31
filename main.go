@@ -532,9 +532,22 @@ func newServer(roomID string, port int, maxUsers int) *server {
 
 // Chat handles bidirectional streaming chat
 func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
-	// Skeleton implementation - just return nil for now
+	// Receive first message from stream for room validation
+	firstMsg, err := stream.Recv()
+	if err != nil {
+		return fmt.Errorf("failed to receive first message: %v", err)
+	}
+	
+	// Check room ID matches
+	if firstMsg.RoomId != s.roomID {
+		return fmt.Errorf("room ID mismatch: expected %s, got %s", 
+			s.roomID[:16]+"...", firstMsg.RoomId[:16]+"...")
+	}
+	
+	// Room ID validation passed
+	fmt.Printf("Client stream connected to room %s\n", s.roomID[:16]+"...")
+	
 	// In full implementation, this would:
-	// - Validate initial message with room ID
 	// - Register client stream for broadcasting
 	// - Handle incoming messages and broadcast to other clients
 	return nil
