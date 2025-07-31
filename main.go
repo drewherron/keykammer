@@ -578,9 +578,53 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 		}
 	}()
 	
-	// In full implementation, this would:
-	// - Handle incoming messages and broadcast to other clients
+	// Message receive loop
+	for {
+		msg, err := stream.Recv()
+		if err != nil {
+			fmt.Printf("Client %s stream receive error: %v\n", clientID[:8], err)
+			break
+		}
+		
+		// Log received message for now
+		fmt.Printf("Received message from client %s: room=%s, username=%s\n", 
+			clientID[:8], msg.RoomId[:16]+"...", msg.Username)
+		
+		// Broadcast message to other clients
+		s.broadcast(msg, clientID)
+	}
+	
 	return nil
+}
+
+// broadcast sends a message to all connected clients except the sender
+func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	
+	// Iterate through all clients
+	for clientID, clientInfo := range s.clients {
+		// Skip sender
+		if clientID == senderID {
+			continue
+		}
+		
+		// Skip clients without active streams
+		if clientInfo.Stream == nil {
+			continue
+		}
+		
+		// Send message to client stream
+		if stream, ok := clientInfo.Stream.(pb.KeykammerService_ChatServer); ok {
+			err := stream.Send(msg)
+			if err != nil {
+				fmt.Printf("Failed to send message to client %s: %v\n", clientID[:8], err)
+				// Don't remove failed clients yet - that will be handled in Step 72
+			} else {
+				fmt.Printf("Broadcasted message to client %s\n", clientID[:8])
+			}
+		}
+	}
 }
 
 // JoinRoom handles client room join requests with username validation
