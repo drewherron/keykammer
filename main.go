@@ -872,13 +872,6 @@ func runClient(serverAddr string, roomID string) {
 	os.Exit(1)
 }
 
-// determineMode returns "server" if serverAddr is empty, "client" if provided
-func determineMode(serverAddr string) string {
-	if serverAddr == "" {
-		return "server"
-	}
-	return "client"
-}
 
 // generateClientID creates a unique identifier for each client
 func generateClientID() string {
@@ -989,7 +982,6 @@ func tryConnectAsClient(addr string, roomID string, username string) bool {
 }
 
 func main() {
-	serverMode := flag.Bool("server", false, "Run in server mode")
 	keyfile := flag.String("keyfile", "", "Path to key file (required)")
 	port := flag.Int("port", DefaultPort, "Port to use")
 	password := flag.String("password", "", "Optional password for server derivation (empty uses keyfile only)")
@@ -1051,15 +1043,7 @@ func main() {
 		fmt.Printf("Room size: %d users max\n", keyInfo.MaxUsers)
 	}
 	
-	// Determine operation mode
-	var serverAddr string
-	if *serverMode {
-		serverAddr = ""
-	} else {
-		serverAddr = "some-address" // Will be determined later
-	}
-	mode := determineMode(serverAddr)
-	fmt.Printf("Operation mode: %s\n", mode)
+	// Server/client mode will be determined automatically based on room availability
 	fmt.Printf("\n")
 	
 	// Check discovery mode and server availability
@@ -1107,11 +1091,9 @@ func main() {
 				fmt.Printf("Falling back to localhost-only mode\n")
 			} else {
 				fmt.Printf("\nStarting new room server at %s\n", serverAddr)
-				// Start server when in server mode
-				if mode == "server" {
-					runServer(keyInfo.RoomID, *port, *size)
-					return
-				}
+				// Start server automatically since no existing room found
+				runServer(keyInfo.RoomID, *port, *size)
+				return
 			}
 		}
 	} else {
@@ -1121,17 +1103,15 @@ func main() {
 		fmt.Printf("Server address: %s\n", serverAddr)
 		
 		// Check for existing local server first
-		if !*serverMode && isServerRunning(*port) {
+		if isServerRunning(*port) {
 			fmt.Printf("Found existing server on localhost:%d, connecting as client\n", *port)
 			runClient(fmt.Sprintf("localhost:%d", *port), keyInfo.RoomID)
 			return
 		}
 		
-		// Start server if in server mode or no existing server found
-		if mode == "server" || !*serverMode {
-			runServer(keyInfo.RoomID, *port, *size)
-			return
-		}
+		// Start server since no existing server found
+		runServer(keyInfo.RoomID, *port, *size)
+		return
 	}
 	
 	fmt.Printf("\nDiscovery flow complete. Client mode not yet implemented.\n")
