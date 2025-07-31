@@ -665,6 +665,20 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 		}, nil
 	}
 	
+	// Check capacity before accepting new connections
+	s.mutex.RLock()
+	currentCount := s.currentUsers
+	maxCount := s.maxUsers
+	s.mutex.RUnlock()
+	
+	if maxCount > 0 && currentCount >= maxCount {
+		fmt.Printf("Room at capacity (%d/%d) - rejecting new connection\n", currentCount, maxCount)
+		return &pb.JoinResponse{
+			Success: false,
+			Message: fmt.Sprintf("Room is full (%d/%d users)", currentCount, maxCount),
+		}, nil
+	}
+	
 	username := req.Username
 	
 	// Validate username format
