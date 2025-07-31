@@ -503,7 +503,7 @@ func deriveKeyInfoLegacy(fileContent []byte, password string) (*KeyInfo, error) 
 // ClientInfo stores information about a connected client
 type ClientInfo struct {
 	Username string
-	Stream   interface{} // Will be pb.KeykammerService_ChatServer when streaming is implemented
+	Stream   interface{} // pb.KeykammerService_ChatServer when streaming, nil for JoinRoom-only clients
 }
 
 // Server implementation
@@ -547,8 +547,22 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 	// Room ID validation passed
 	fmt.Printf("Client stream connected to room %s\n", s.roomID[:16]+"...")
 	
+	// Generate client ID
+	clientID := generateClientID()
+	
+	// Lock mutex and register client
+	s.mutex.Lock()
+	s.clients[clientID] = &ClientInfo{
+		Username: "", // Will be set from username in message or join flow
+		Stream:   stream,
+	}
+	s.currentUsers++
+	clientCount := s.currentUsers
+	s.mutex.Unlock()
+	
+	fmt.Printf("Client %s registered for streaming (total clients: %d)\n", clientID[:8], clientCount)
+	
 	// In full implementation, this would:
-	// - Register client stream for broadcasting
 	// - Handle incoming messages and broadcast to other clients
 	return nil
 }
@@ -595,7 +609,7 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 	s.mutex.Lock()
 	s.clients[clientID] = &ClientInfo{
 		Username: username,
-		Stream:   nil, // Will be set when streaming is implemented
+		Stream:   nil, // Stream will be set when client calls Chat method
 	}
 	// Register username mapping
 	s.usernames[username] = clientID
