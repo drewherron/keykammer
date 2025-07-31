@@ -562,6 +562,22 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 	
 	fmt.Printf("Client %s registered for streaming (total clients: %d)\n", clientID[:8], clientCount)
 	
+	// Add defer function to remove client on disconnect
+	defer func() {
+		s.mutex.Lock()
+		delete(s.clients, clientID)
+		s.currentUsers--
+		remainingUsers := s.currentUsers
+		s.mutex.Unlock()
+		
+		fmt.Printf("Client %s disconnected (remaining clients: %d)\n", clientID[:8], remainingUsers)
+		
+		// Check if room should be deleted from discovery (if currentUsers == 0)
+		if remainingUsers == 0 {
+			fmt.Printf("Room is now empty - would trigger discovery cleanup in full implementation\n")
+		}
+	}()
+	
 	// In full implementation, this would:
 	// - Handle incoming messages and broadcast to other clients
 	return nil
