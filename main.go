@@ -996,7 +996,18 @@ func main() {
 	size := flag.Int("size", 2, "Maximum users per room (2 for maximum privacy, 0 = unlimited)")
 	discoveryServer := flag.String("discovery-server", DefaultDiscoveryServer, "Discovery server URL")
 	discoveryMode := flag.String("discovery-mode", "auto", "Discovery mode: auto, discovery-only, local-only")
+	discoveryServerMode := flag.Bool("discovery-server-mode", false, "Run as HTTP discovery server")
 	flag.Parse()
+
+	// Handle discovery server mode
+	if *discoveryServerMode {
+		fmt.Printf("Starting discovery server on port %d\n", *port)
+		err := runDiscoveryServer(*port)
+		if err != nil {
+			log.Fatalf("Discovery server failed: %v", err)
+		}
+		return
+	}
 
 	if *keyfile == "" {
 		fmt.Println("Error: -keyfile is required")
@@ -1124,5 +1135,142 @@ func main() {
 	}
 	
 	fmt.Printf("\nDiscovery flow complete. Client mode not yet implemented.\n")
+}
+
+// In-memory room storage for discovery server
+var (
+	discoveryRooms = make(map[string]*RoomRegistration)
+	discoveryMutex = sync.RWMutex{}
+)
+
+// runDiscoveryServer starts the HTTP discovery server
+func runDiscoveryServer(port int) error {
+	http.HandleFunc("/health", handleHealth)
+	http.HandleFunc("/api/rooms", handleRooms)
+	http.HandleFunc("/api/rooms/", handleSpecificRoom)
+	
+	addr := fmt.Sprintf(":%d", port)
+	fmt.Printf("Discovery server listening on %s\n", addr)
+	fmt.Printf("Endpoints:\n")
+	fmt.Printf("  GET  /health        - Health check\n")
+	fmt.Printf("  POST /api/rooms     - Register room\n")
+	fmt.Printf("  GET  /api/rooms/{id} - Lookup room\n")
+	fmt.Printf("  DELETE /api/rooms/{id} - Delete room\n")
+	
+	return http.ListenAndServe(addr, nil)
+}
+
+// handleHealth provides a simple health check endpoint
+func handleHealth(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte(`{"status":"ok"}`))
+}
+
+// handleRooms handles POST requests to register new rooms
+func handleRooms(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	
+	var registration RoomRegistration
+	if err := json.NewDecoder(r.Body).Decode(&registration); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+	
+	// Validate registration
+	if registration.RoomID == "" || registration.ServerAddress == "" {
+		http.Error(w, "Missing room_id or server_address", http.StatusBadRequest)
+		return
+	}
+	
+	discoveryMutex.Lock()
+	discoveryRooms[registration.RoomID] = &registration
+	discoveryMutex.Unlock()
+	
+	fmt.Printf("Registered room %s at %s (%d/%d users)\n", 
+		registration.RoomID[:16]+"...", registration.ServerAddress, 
+		registration.CurrentUsers, registration.MaxUsers)
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(map[string]string{"status": "registered"})
+}
+
+// handleSpecificRoom handles GET and DELETE requests for specific rooms
+func handleSpecificRoom(w http.ResponseWriter, r *http.Request) {
+	// Extract room ID from URL path
+	roomID := strings.TrimPrefix(r.URL.Path, "/api/rooms/")
+	if roomID == "" {
+		http.Error(w, "Missing room ID", http.StatusBadRequest)
+		return
+	}
+	
+	switch r.Method {
+	case http.MethodGet:
+		handleRoomLookup(w, roomID)
+	case http.MethodDelete:
+		handleRoomDelete(w, roomID)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleRoomLookup handles GET requests to lookup rooms
+func handleRoomLookup(w http.ResponseWriter, roomID string) {
+	discoveryMutex.RLock()
+	room, exists := discoveryRooms[roomID]
+	discoveryMutex.RUnlock()
+	
+	if !exists {
+		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+	
+	response := DiscoveryResponse{
+		ServerAddress:  room.ServerAddress,
+		CurrentUsers:   room.CurrentUsers,
+		MaxUsers:       room.MaxUsers,
+		WillAutoDelete: room.MaxUsers > 0,
+		SlotsRemaining: room.MaxUsers - room.CurrentUsers,
+	}
+	
+	if room.MaxUsers > 0 && room.MaxUsers <= room.CurrentUsers {
+		response.SlotsRemaining = 0
+	}
+	
+	fmt.Printf("Room lookup: %s -> %s (%d/%d users)\n", 
+		roomID[:16]+"...", room.ServerAddress, room.CurrentUsers, room.MaxUsers)
+	
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
+// handleRoomDelete handles DELETE requests to remove rooms
+func handleRoomDelete(w http.ResponseWriter, roomID string) {
+	discoveryMutex.Lock()
+	_, exists := discoveryRooms[roomID]
+	if exists {
+		delete(discoveryRooms, roomID)
+	}
+	discoveryMutex.Unlock()
+	
+	if !exists {
+		http.Error(w, "Room not found", http.StatusNotFound)
+		return
+	}
+	
+	fmt.Printf("Deleted room %s from discovery\n", roomID[:16]+"...")
+	
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 }
 
