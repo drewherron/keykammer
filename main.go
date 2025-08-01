@@ -935,13 +935,13 @@ func startChatSession(serverAddr, roomID, username string) error {
 	done := make(chan bool)
 	go handleIncomingMessages(stream, done)
 	
-	fmt.Printf("Chat session ready. Message handler started.\n")
+	fmt.Printf("Chat session ready. Type messages and press Enter. Type '/quit' to exit.\n")
 	
-	// For now, just wait a bit to see if we receive any messages
-	time.Sleep(5 * time.Second)
-	
-	// Signal the message handler to stop
-	close(done)
+	// Start input loop for sending messages
+	err = handleUserInput(stream, roomID, username, done)
+	if err != nil {
+		return fmt.Errorf("input handling error: %v", err)
+	}
 	
 	return nil
 }
@@ -973,15 +973,67 @@ func handleIncomingMessages(stream pb.KeykammerService_ChatClient, done chan boo
 func displayChatMessage(msg *pb.ChatMessage) {
 	timestamp := time.Unix(0, msg.Timestamp).Format("15:04:05")
 	
-	// For now, show encrypted content as base64 (will decrypt later)
+	// For now, treat encrypted content as plain text (will decrypt later)
 	var content string
 	if len(msg.EncryptedContent) > 0 {
-		content = fmt.Sprintf("[encrypted: %d bytes]", len(msg.EncryptedContent))
+		content = string(msg.EncryptedContent) // Temporary: will decrypt this later
 	} else {
 		content = "[empty message]"
 	}
 	
 	fmt.Printf("[%s] %s: %s\n", timestamp, msg.Username, content)
+}
+
+// handleUserInput processes user input and sends messages
+func handleUserInput(stream pb.KeykammerService_ChatClient, roomID, username string, done chan bool) error {
+	scanner := bufio.NewScanner(os.Stdin)
+	
+	for {
+		fmt.Print("> ")
+		if !scanner.Scan() {
+			break
+		}
+		
+		input := strings.TrimSpace(scanner.Text())
+		
+		// Handle empty input
+		if input == "" {
+			continue
+		}
+		
+		// Handle quit command (will be implemented in next commit)
+		if input == "/quit" {
+			fmt.Printf("Exiting chat...\n")
+			close(done)
+			return nil
+		}
+		
+		// Send the message
+		err := sendMessage(stream, roomID, username, input)
+		if err != nil {
+			fmt.Printf("Failed to send message: %v\n", err)
+			continue
+		}
+	}
+	
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("input scanner error: %v", err)
+	}
+	
+	return nil
+}
+
+// sendMessage sends a chat message through the stream
+func sendMessage(stream pb.KeykammerService_ChatClient, roomID, username, content string) error {
+	// For now, send content as plain text in encrypted field (will encrypt later)
+	msg := &pb.ChatMessage{
+		RoomId:           roomID,
+		Username:         username,
+		EncryptedContent: []byte(content), // Temporary: will encrypt this later
+		Timestamp:        time.Now().UnixNano(),
+	}
+	
+	return stream.Send(msg)
 }
 
 // generateClientID creates a unique identifier for each client
