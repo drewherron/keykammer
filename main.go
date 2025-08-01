@@ -859,10 +859,19 @@ func runClient(serverAddr string, roomID string) {
 		success := tryConnectAsClient(serverAddr, roomID, username)
 		
 		if success {
-			// Store username in client state (conceptually - would be in client struct)
 			fmt.Printf("Client connected successfully to room as %s\n", username)
-			// In full implementation, would store username and start chat loop here
-			return
+			
+			// Establish chat stream and start chat
+			err := startChatSession(serverAddr, roomID, username)
+			if err != nil {
+				fmt.Printf("Failed to start chat session: %v\n", err)
+				if attempt < maxAttempts {
+					fmt.Printf("Retrying with different username...\n")
+					continue
+				}
+			} else {
+				return // Chat session completed normally
+			}
 		} else if attempt < maxAttempts {
 			fmt.Printf("Username may be taken or connection failed. Try a different username.\n")
 		}
@@ -872,6 +881,62 @@ func runClient(serverAddr string, roomID string) {
 	os.Exit(1)
 }
 
+// establishChatStream creates a bidirectional gRPC stream for chat
+func establishChatStream(serverAddr string) (pb.KeykammerService_ChatClient, *grpc.ClientConn, error) {
+	// Create connection to server
+	conn, err := connectToServer(serverAddr)
+	if err != nil {
+		return nil, nil, fmt.Errorf("failed to connect to server: %v", err)
+	}
+	
+	// Create gRPC client
+	client := pb.NewKeykammerServiceClient(conn)
+	
+	// Start chat stream
+	ctx := context.Background()
+	stream, err := client.Chat(ctx)
+	if err != nil {
+		conn.Close()
+		return nil, nil, fmt.Errorf("failed to start chat stream: %v", err)
+	}
+	
+	return stream, conn, nil
+}
+
+// startChatSession handles the full chat session lifecycle
+func startChatSession(serverAddr, roomID, username string) error {
+	fmt.Printf("Establishing chat stream to %s...\n", serverAddr)
+	
+	// Establish the gRPC stream
+	stream, conn, err := establishChatStream(serverAddr)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	
+	fmt.Printf("Chat stream established, sending initial message...\n")
+	
+	// Send initial message with room ID and username for validation
+	initialMsg := &pb.ChatMessage{
+		RoomId:           roomID,
+		Username:         username,
+		EncryptedContent: []byte{}, // Empty content for initial validation message
+		Timestamp:        time.Now().UnixNano(),
+	}
+	
+	err = stream.Send(initialMsg)
+	if err != nil {
+		return fmt.Errorf("failed to send initial message: %v", err)
+	}
+	
+	fmt.Printf("Successfully joined chat room %s as %s\n", roomID[:16]+"...", username)
+	fmt.Printf("Chat session ready (streaming implementation to be added)\n")
+	
+	// For now, just wait a bit and close
+	time.Sleep(2 * time.Second)
+	
+	return nil
+}
 
 // generateClientID creates a unique identifier for each client
 func generateClientID() string {
