@@ -935,7 +935,18 @@ func startChatSession(serverAddr, roomID, username string) error {
 	done := make(chan bool)
 	go handleIncomingMessages(stream, done)
 	
+	// Set up signal handling for Ctrl+C
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	
+	go func() {
+		<-sigChan
+		fmt.Printf("\nReceived interrupt signal, exiting chat...\n")
+		close(done)
+	}()
+	
 	fmt.Printf("Chat session ready. Type messages and press Enter. Type '/quit' to exit.\n")
+	fmt.Printf("Press Ctrl+C to exit at any time.\n")
 	
 	// Start input loop for sending messages
 	err = handleUserInput(stream, roomID, username, done)
@@ -951,20 +962,28 @@ func handleIncomingMessages(stream pb.KeykammerService_ChatClient, done chan boo
 	for {
 		select {
 		case <-done:
-			fmt.Printf("Message handler stopping...\n")
 			return
 		default:
-			// Set a timeout for receiving messages
+			// Receive message with context
 			msg, err := stream.Recv()
 			if err != nil {
-				if err.Error() != "EOF" {
-					fmt.Printf("Error receiving message: %v\n", err)
+				// Check if we're supposed to stop
+				select {
+				case <-done:
+					return
+				default:
+					if err.Error() != "EOF" {
+						fmt.Printf("\nConnection error: %v\n", err)
+						fmt.Print("> ") // Restore input prompt
+					}
+					return
 				}
-				return
 			}
 			
 			// Display the received message
+			fmt.Print("\r") // Clear the input prompt
 			displayChatMessage(msg)
+			fmt.Print("> ") // Restore input prompt
 		}
 	}
 }
@@ -1001,10 +1020,12 @@ func handleUserInput(stream pb.KeykammerService_ChatClient, roomID, username str
 			continue
 		}
 		
-		// Handle quit command (will be implemented in next commit)
+		// Handle quit command
 		if input == "/quit" {
 			fmt.Printf("Exiting chat...\n")
 			close(done)
+			// Give the message handler a moment to stop
+			time.Sleep(100 * time.Millisecond)
 			return nil
 		}
 		
