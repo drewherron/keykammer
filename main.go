@@ -987,7 +987,6 @@ func main() {
 	password := flag.String("password", "", "Optional password for server derivation (empty uses keyfile only)")
 	size := flag.Int("size", 2, "Maximum users per room (2 for maximum privacy, 0 = unlimited)")
 	discoveryServer := flag.String("discovery-server", DefaultDiscoveryServer, "Discovery server URL")
-	discoveryMode := flag.String("discovery-mode", "auto", "Discovery mode: auto, discovery-only, local-only")
 	discoveryServerMode := flag.Bool("discovery-server-mode", false, "Run as HTTP discovery server")
 	flag.Parse()
 
@@ -1013,14 +1012,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Validate discovery mode parameter
-	switch *discoveryMode {
-	case "auto", "discovery-only", "local-only":
-		// Valid modes
-	default:
-		fmt.Printf("Error: invalid discovery mode '%s'. Must be one of: auto, discovery-only, local-only\n", *discoveryMode)
-		os.Exit(1)
-	}
 
 	// Read keyfile and derive key info
 	fileContent, err := readFile(*keyfile)
@@ -1046,26 +1037,10 @@ func main() {
 	// Server/client mode will be determined automatically based on room availability
 	fmt.Printf("\n")
 	
-	// Check discovery mode and server availability
+	// Check discovery server availability
 	fmt.Printf("Discovery server: %s\n", *discoveryServer)
-	fmt.Printf("Discovery mode: %s\n", *discoveryMode)
 	
-	var discoveryAvailable bool
-	
-	switch *discoveryMode {
-	case "local-only":
-		fmt.Printf("Local-only mode selected, skipping discovery server\n")
-		discoveryAvailable = false
-	case "discovery-only":
-		fmt.Printf("Discovery-only mode selected, discovery server required\n")
-		discoveryAvailable = checkDiscoveryAndFallback(*discoveryServer)
-		if !discoveryAvailable {
-			fmt.Printf("Error: Discovery server required but unavailable\n")
-			os.Exit(1)
-		}
-	case "auto":
-		discoveryAvailable = checkDiscoveryAndFallback(*discoveryServer)
-	}
+	discoveryAvailable := checkDiscoveryAndFallback(*discoveryServer)
 	
 	if discoveryAvailable {
 		// Try room lookup before creating new room
