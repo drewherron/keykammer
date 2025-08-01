@@ -930,12 +930,58 @@ func startChatSession(serverAddr, roomID, username string) error {
 	}
 	
 	fmt.Printf("Successfully joined chat room %s as %s\n", roomID[:16]+"...", username)
-	fmt.Printf("Chat session ready (streaming implementation to be added)\n")
 	
-	// For now, just wait a bit and close
-	time.Sleep(2 * time.Second)
+	// Start message receive handler in goroutine
+	done := make(chan bool)
+	go handleIncomingMessages(stream, done)
+	
+	fmt.Printf("Chat session ready. Message handler started.\n")
+	
+	// For now, just wait a bit to see if we receive any messages
+	time.Sleep(5 * time.Second)
+	
+	// Signal the message handler to stop
+	close(done)
 	
 	return nil
+}
+
+// handleIncomingMessages receives and displays messages from the chat stream
+func handleIncomingMessages(stream pb.KeykammerService_ChatClient, done chan bool) {
+	for {
+		select {
+		case <-done:
+			fmt.Printf("Message handler stopping...\n")
+			return
+		default:
+			// Set a timeout for receiving messages
+			msg, err := stream.Recv()
+			if err != nil {
+				if err.Error() != "EOF" {
+					fmt.Printf("Error receiving message: %v\n", err)
+				}
+				return
+			}
+			
+			// Display the received message
+			displayChatMessage(msg)
+		}
+	}
+}
+
+// displayChatMessage formats and displays a received chat message
+func displayChatMessage(msg *pb.ChatMessage) {
+	timestamp := time.Unix(0, msg.Timestamp).Format("15:04:05")
+	
+	// For now, show encrypted content as base64 (will decrypt later)
+	var content string
+	if len(msg.EncryptedContent) > 0 {
+		content = fmt.Sprintf("[encrypted: %d bytes]", len(msg.EncryptedContent))
+	} else {
+		content = "[empty message]"
+	}
+	
+	fmt.Printf("[%s] %s: %s\n", timestamp, msg.Username, content)
 }
 
 // generateClientID creates a unique identifier for each client
