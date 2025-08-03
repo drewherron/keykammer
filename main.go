@@ -438,7 +438,9 @@ func checkDiscoveryAndFallback(discoveryURL string) bool {
 	
 	fmt.Printf("Discovery server unavailable: %s\n", discoveryURL)
 	fmt.Printf("Falling back to localhost-only mode\n")
-	fmt.Printf("  Note: Only local connections will work in this mode\n")
+	fmt.Printf("  Note: Only connections on this computer will work\n")
+	fmt.Printf("  Note: To chat across the internet, ensure discovery server is running\n")
+	fmt.Printf("  Note: You can run your own discovery server with: keykammer -discovery-server-mode\n")
 	
 	return false
 }
@@ -864,7 +866,17 @@ func runClient(serverAddr string, roomID string) {
 			// Establish chat stream and start chat
 			err := startChatSession(serverAddr, roomID, username)
 			if err != nil {
-				fmt.Printf("Failed to start chat session: %v\n", err)
+				// Provide specific error messages for chat session failures
+				if strings.Contains(err.Error(), "connection refused") {
+					fmt.Printf("Chat server disconnected: %v\n", err)
+					fmt.Printf("  Tip: The server may have shut down. Try connecting again.\n")
+				} else if strings.Contains(err.Error(), "stream") {
+					fmt.Printf("Chat stream error: %v\n", err)
+					fmt.Printf("  Tip: Connection interrupted. Try reconnecting.\n")
+				} else {
+					fmt.Printf("Chat session failed: %v\n", err)
+				}
+				
 				if attempt < maxAttempts {
 					fmt.Printf("Retrying with different username...\n")
 					continue
@@ -1165,6 +1177,14 @@ func connectToServerWithRetry(addr string, maxRetries int) (*grpc.ClientConn, er
 		}
 	}
 	
+	// Provide helpful error message based on the error type
+	if strings.Contains(lastErr.Error(), "connection refused") {
+		return nil, fmt.Errorf("connection failed after %d attempts: server not reachable at %s (connection refused)\nTip: Make sure the server is running and the address is correct", maxRetries+1, addr)
+	} else if strings.Contains(lastErr.Error(), "timeout") || strings.Contains(lastErr.Error(), "deadline exceeded") {
+		return nil, fmt.Errorf("connection failed after %d attempts: connection timeout to %s\nTip: Check your network connection and firewall settings", maxRetries+1, addr)
+	} else if strings.Contains(lastErr.Error(), "no such host") {
+		return nil, fmt.Errorf("connection failed after %d attempts: hostname not found (%s)\nTip: Check the server address spelling and DNS settings", maxRetries+1, addr)
+	}
 	return nil, fmt.Errorf("connection failed after %d attempts: %v", maxRetries+1, lastErr)
 }
 
@@ -1203,7 +1223,22 @@ func tryConnectAsClient(addr string, roomID string, username string) bool {
 		fmt.Printf("Successfully joined room %s\n", roomID[:16]+"...")
 		return true
 	} else {
-		fmt.Printf("Room join rejected by server\n")
+		// Provide specific error messages based on the rejection reason
+		if strings.Contains(resp.Message, "full") || strings.Contains(resp.Message, "capacity") {
+			fmt.Printf("Room is full: %s\n", resp.Message)
+			fmt.Printf("  Tip: Try again later or use a different keyfile to create a new room\n")
+		} else if strings.Contains(resp.Message, "taken") {
+			fmt.Printf("Username already taken: %s\n", resp.Message)
+			if len(resp.TakenUsernames) > 0 {
+				fmt.Printf("  Taken usernames: %v\n", resp.TakenUsernames)
+			}
+			fmt.Printf("  Tip: Try a different username\n")
+		} else if strings.Contains(resp.Message, "Invalid room") {
+			fmt.Printf("Wrong room: %s\n", resp.Message)
+			fmt.Printf("  Tip: Make sure you're using the same keyfile as other participants\n")
+		} else {
+			fmt.Printf("Room join rejected: %s\n", resp.Message)
+		}
 		return false
 	}
 }
@@ -1275,7 +1310,12 @@ func main() {
 		existingServerAddr, err := lookupRoomInDiscoveryWithRetry(keyInfo.RoomID, *discoveryServer, DefaultMaxRetries)
 		
 		if err != nil {
-			fmt.Printf("Error during room lookup: %v\n", err)
+			fmt.Printf("Room lookup failed: %v\n", err)
+			if strings.Contains(err.Error(), "timeout") {
+				fmt.Printf("  Tip: Discovery server may be slow. Try again or use localhost mode\n")
+			} else if strings.Contains(err.Error(), "connection") {
+				fmt.Printf("  Tip: Cannot reach discovery server. Proceeding with new room creation\n")
+			}
 			fmt.Printf("Proceeding to create new room...\n")
 		} else if existingServerAddr != "" {
 			// Connect to existing room as client
