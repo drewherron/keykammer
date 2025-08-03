@@ -1268,6 +1268,7 @@ func main() {
 	size := flag.Int("size", 2, "Maximum users per room (2 for maximum privacy, 0 = unlimited)")
 	discoveryServer := flag.String("discovery-server", DefaultDiscoveryServer, "Discovery server URL")
 	discoveryServerMode := flag.Bool("discovery-server-mode", false, "Run as HTTP discovery server")
+	connectDirect := flag.String("connect", "", "Connect directly to server at IP:PORT (bypasses discovery)")
 	flag.Parse()
 
 	// Handle discovery server mode
@@ -1284,6 +1285,15 @@ func main() {
 		fmt.Println("Error: -keyfile is required")
 		flag.Usage()
 		os.Exit(1)
+	}
+	
+	// Validate connect flag format if provided
+	if *connectDirect != "" {
+		if !strings.Contains(*connectDirect, ":") {
+			fmt.Printf("Error: -connect must be in IP:PORT format (got: %s)\n", *connectDirect)
+			fmt.Printf("Example: -connect 192.168.1.100:76667\n")
+			os.Exit(1)
+		}
 	}
 
 	// Validate size parameter
@@ -1316,6 +1326,14 @@ func main() {
 	
 	// Server/client mode will be determined automatically based on room availability
 	fmt.Printf("\n")
+	
+	// Handle direct connection mode
+	if *connectDirect != "" {
+		fmt.Printf("Direct connection mode: %s\n", *connectDirect)
+		fmt.Printf("Bypassing discovery server, connecting directly...\n")
+		runClient(*connectDirect, keyInfo.RoomID)
+		return
+	}
 	
 	// Check discovery server availability
 	fmt.Printf("Discovery server: %s\n", *discoveryServer)
