@@ -883,8 +883,8 @@ func runClient(serverAddr string, roomID string) {
 
 // establishChatStream creates a bidirectional gRPC stream for chat
 func establishChatStream(serverAddr string) (pb.KeykammerService_ChatClient, *grpc.ClientConn, error) {
-	// Create connection to server
-	conn, err := connectToServer(serverAddr)
+	// Create connection to server with retry logic
+	conn, err := connectToServerWithRetry(serverAddr, 3) // 3 retries = 4 total attempts
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to server: %v", err)
 	}
@@ -964,9 +964,29 @@ func handleIncomingMessages(stream pb.KeykammerService_ChatClient, done chan boo
 		case <-done:
 			return
 		default:
-			// Receive message with context
-			msg, err := stream.Recv()
-			if err != nil {
+			// Create a channel to receive the message with timeout
+			msgChan := make(chan *pb.ChatMessage, 1)
+			errChan := make(chan error, 1)
+			
+			go func() {
+				msg, err := stream.Recv()
+				if err != nil {
+					errChan <- err
+				} else {
+					msgChan <- msg
+				}
+			}()
+			
+			// Wait for message or timeout
+			select {
+			case <-done:
+				return
+			case msg := <-msgChan:
+				// Display the received message
+				fmt.Print("\r") // Clear the input prompt
+				displayChatMessage(msg)
+				fmt.Print("> ") // Restore input prompt
+			case err := <-errChan:
 				// Check if we're supposed to stop
 				select {
 				case <-done:
@@ -978,12 +998,10 @@ func handleIncomingMessages(stream pb.KeykammerService_ChatClient, done chan boo
 					}
 					return
 				}
+			case <-time.After(30 * time.Second):
+				// Timeout - continue listening (this prevents blocking forever)
+				continue
 			}
-			
-			// Display the received message
-			fmt.Print("\r") // Clear the input prompt
-			displayChatMessage(msg)
-			fmt.Print("> ") // Restore input prompt
 		}
 	}
 }
@@ -1125,13 +1143,38 @@ func connectToServer(addr string) (*grpc.ClientConn, error) {
 	return conn, nil
 }
 
+// connectToServerWithRetry attempts to connect with retry logic
+func connectToServerWithRetry(addr string, maxRetries int) (*grpc.ClientConn, error) {
+	var lastErr error
+	
+	for attempt := 0; attempt <= maxRetries; attempt++ {
+		conn, err := connectToServer(addr)
+		if err == nil {
+			if attempt > 0 {
+				fmt.Printf("Connection succeeded after %d retries\n", attempt)
+			}
+			return conn, nil
+		}
+		
+		lastErr = err
+		if attempt < maxRetries {
+			delay := time.Duration(1<<attempt) * time.Second // Exponential backoff: 1s, 2s, 4s, 8s...
+			fmt.Printf("Connection attempt %d/%d failed: %v\n", attempt+1, maxRetries+1, err)
+			fmt.Printf("Retrying in %v...\n", delay)
+			time.Sleep(delay)
+		}
+	}
+	
+	return nil, fmt.Errorf("connection failed after %d attempts: %v", maxRetries+1, lastErr)
+}
+
 // tryConnectAsClient attempts to connect to a server and join a room
 func tryConnectAsClient(addr string, roomID string, username string) bool {
 	// Add client logging
 	fmt.Printf("Attempting to connect to %s as user %s\n", addr, username)
 	
-	// Create connection to server
-	conn, err := connectToServer(addr)
+	// Create connection to server with retry logic
+	conn, err := connectToServerWithRetry(addr, 2) // 2 retries = 3 total attempts (less for join attempts)
 	if err != nil {
 		fmt.Printf("Failed to connect to server: %v\n", err)
 		return false
