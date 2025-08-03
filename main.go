@@ -295,6 +295,12 @@ func lookupRoomInDiscovery(roomID, discoveryURL string) (string, error) {
 	fmt.Printf("Found existing room in discovery server\n")
 	fmt.Printf("  Room ID: %s\n", roomID[:16]+"...")
 	fmt.Printf("  Server: %s\n", discovery.ServerAddress)
+	if discovery.MaxUsers > 0 {
+		fmt.Printf("  Capacity: %d/%d users (%d slots remaining)\n", 
+			discovery.CurrentUsers, discovery.MaxUsers, discovery.SlotsRemaining)
+	} else {
+		fmt.Printf("  Capacity: %d users (unlimited)\n", discovery.CurrentUsers)
+	}
 	
 	// Validate room capacity using the new validation function
 	canJoin, err := checkRoomJoinability(roomID, discovery.CurrentUsers, discovery.MaxUsers)
@@ -895,11 +901,15 @@ func runClient(serverAddr string, roomID string) {
 
 // establishChatStream creates a bidirectional gRPC stream for chat
 func establishChatStream(serverAddr string) (pb.KeykammerService_ChatClient, *grpc.ClientConn, error) {
+	fmt.Printf("Connecting to chat server at %s...\n", serverAddr)
+	
 	// Create connection to server with retry logic
 	conn, err := connectToServerWithRetry(serverAddr, 3) // 3 retries = 4 total attempts
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to server: %v", err)
 	}
+	
+	fmt.Printf("Connection established, starting chat stream...\n")
 	
 	// Create gRPC client
 	client := pb.NewKeykammerServiceClient(conn)
@@ -957,8 +967,12 @@ func startChatSession(serverAddr, roomID, username string) error {
 		close(done)
 	}()
 	
-	fmt.Printf("Chat session ready. Type messages and press Enter. Type '/quit' to exit.\n")
-	fmt.Printf("Press Ctrl+C to exit at any time.\n")
+	fmt.Printf("\n" + strings.Repeat("=", 50) + "\n")
+	fmt.Printf("CHAT SESSION READY\n")
+	fmt.Printf("Room: %s\n", roomID[:16]+"...")
+	fmt.Printf("User: %s\n", username)
+	fmt.Printf("Commands: /quit to exit, Ctrl+C to force quit\n")
+	fmt.Printf(strings.Repeat("=", 50) + "\n")
 	
 	// Start input loop for sending messages
 	err = handleUserInput(stream, roomID, username, done)
@@ -1191,7 +1205,8 @@ func connectToServerWithRetry(addr string, maxRetries int) (*grpc.ClientConn, er
 // tryConnectAsClient attempts to connect to a server and join a room
 func tryConnectAsClient(addr string, roomID string, username string) bool {
 	// Add client logging
-	fmt.Printf("Attempting to connect to %s as user %s\n", addr, username)
+	fmt.Printf("Attempting to join room as user %s\n", username)
+	fmt.Printf("Server address: %s\n", addr)
 	
 	// Create connection to server with retry logic
 	conn, err := connectToServerWithRetry(addr, 2) // 2 retries = 3 total attempts (less for join attempts)
@@ -1221,6 +1236,9 @@ func tryConnectAsClient(addr string, roomID string, username string) bool {
 	
 	if resp.Success {
 		fmt.Printf("Successfully joined room %s\n", roomID[:16]+"...")
+		if resp.ClientCount > 0 {
+			fmt.Printf("Room participants: %d users connected\n", resp.ClientCount)
+		}
 		return true
 	} else {
 		// Provide specific error messages based on the rejection reason
@@ -1301,6 +1319,7 @@ func main() {
 	
 	// Check discovery server availability
 	fmt.Printf("Discovery server: %s\n", *discoveryServer)
+	fmt.Printf("Checking discovery server status...\n")
 	
 	discoveryAvailable := checkDiscoveryAndFallback(*discoveryServer)
 	
@@ -1326,6 +1345,7 @@ func main() {
 			// Register room if lookup fails (new room)
 			fmt.Printf("\nNo existing room found, creating new room...\n")
 			serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
+			fmt.Printf("Server will start at: %s\n", serverAddr)
 			
 			err = registerWithDiscoveryWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, DefaultMaxRetries)
 			if err != nil {
