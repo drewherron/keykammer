@@ -4,6 +4,8 @@ import (
 	"bufio"
 	"bytes"
 	"context"
+	"crypto/aes"
+	"crypto/cipher"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
@@ -38,6 +40,8 @@ const (
 	DiscoveryTimeout = 10 // seconds
 	DiscoveryRetryDelay = 2 // seconds
 	DefaultMaxRetries = 3 // number of retry attempts
+	// AES key size for AES-256
+	AESKeySize = 32 // 32 bytes for AES-256
 )
 
 // getFileSize returns the size of a file in bytes
@@ -111,6 +115,76 @@ type KeyInfo struct {
 	EncryptionKey   []byte
 	MaxUsers        int
 	DiscoveryStatus DiscoveryStatus
+}
+
+// Encryption functions
+
+// encrypt encrypts plaintext using AES-256-GCM with the provided key
+func encrypt(plaintext []byte, key []byte) ([]byte, error) {
+	// Validate key size
+	if len(key) != AESKeySize {
+		return nil, fmt.Errorf("invalid key size: %d bytes (expected %d)", len(key), AESKeySize)
+	}
+	
+	// Create AES cipher
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AES cipher: %v", err)
+	}
+	
+	// Create GCM mode
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCM: %v", err)
+	}
+	
+	// Generate random nonce
+	nonce := make([]byte, gcm.NonceSize())
+	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
+		return nil, fmt.Errorf("failed to generate nonce: %v", err)
+	}
+	
+	// Encrypt and authenticate
+	ciphertext := gcm.Seal(nonce, nonce, plaintext, nil)
+	
+	return ciphertext, nil
+}
+
+// decrypt decrypts ciphertext using AES-256-GCM with the provided key
+func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
+	// Validate key size
+	if len(key) != AESKeySize {
+		return nil, fmt.Errorf("invalid key size: %d bytes (expected %d)", len(key), AESKeySize)
+	}
+	
+	// Create AES cipher
+	block, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create AES cipher: %v", err)
+	}
+	
+	// Create GCM mode
+	gcm, err := cipher.NewGCM(block)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create GCM: %v", err)
+	}
+	
+	// Check minimum ciphertext length
+	nonceSize := gcm.NonceSize()
+	if len(ciphertext) < nonceSize {
+		return nil, fmt.Errorf("ciphertext too short: %d bytes (minimum %d)", len(ciphertext), nonceSize)
+	}
+	
+	// Extract nonce and ciphertext
+	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
+	
+	// Decrypt and verify
+	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
+	if err != nil {
+		return nil, fmt.Errorf("decryption failed: %v", err)
+	}
+	
+	return plaintext, nil
 }
 
 // Discovery server data structures
