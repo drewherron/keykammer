@@ -1072,7 +1072,7 @@ func startChatSession(serverAddr, roomID, username string, encryptionKey []byte)
 	
 	// Start message receive handler in goroutine
 	done := make(chan bool)
-	go handleIncomingMessages(stream, done)
+	go handleIncomingMessages(stream, encryptionKey, done)
 	
 	// Set up signal handling for Ctrl+C
 	sigChan := make(chan os.Signal, 1)
@@ -1100,8 +1100,8 @@ func startChatSession(serverAddr, roomID, username string, encryptionKey []byte)
 	return nil
 }
 
-// handleIncomingMessages receives and displays messages from the chat stream
-func handleIncomingMessages(stream pb.KeykammerService_ChatClient, done chan bool) {
+// handleIncomingMessages receives and displays decrypted messages from the chat stream
+func handleIncomingMessages(stream pb.KeykammerService_ChatClient, key []byte, done chan bool) {
 	for {
 		select {
 		case <-done:
@@ -1127,7 +1127,7 @@ func handleIncomingMessages(stream pb.KeykammerService_ChatClient, done chan boo
 			case msg := <-msgChan:
 				// Display the received message
 				fmt.Print("\r") // Clear the input prompt
-				displayChatMessage(msg)
+				displayChatMessage(msg, key)
 				fmt.Print("> ") // Restore input prompt
 			case err := <-errChan:
 				// Check if we're supposed to stop
@@ -1149,14 +1149,19 @@ func handleIncomingMessages(stream pb.KeykammerService_ChatClient, done chan boo
 	}
 }
 
-// displayChatMessage formats and displays a received chat message
-func displayChatMessage(msg *pb.ChatMessage) {
+// displayChatMessage formats and displays a decrypted chat message
+func displayChatMessage(msg *pb.ChatMessage, key []byte) {
 	timestamp := time.Unix(0, msg.Timestamp).Format("15:04:05")
 	
-	// For now, treat encrypted content as plain text (will decrypt later)
+	// Decrypt the message content
 	var content string
 	if len(msg.EncryptedContent) > 0 {
-		content = string(msg.EncryptedContent) // Temporary: will decrypt this later
+		decrypted, err := decryptMessageContent(msg, key)
+		if err != nil {
+			content = fmt.Sprintf("[decryption error: %v]", err)
+		} else {
+			content = decrypted
+		}
 	} else {
 		content = "[empty message]"
 	}
