@@ -960,7 +960,7 @@ func runServer(roomID string, port int, maxUsers int) {
 }
 
 // runClient handles main client logic for connecting to a server
-func runClient(serverAddr string, roomID string) {
+func runClient(serverAddr string, roomID string, encryptionKey []byte) {
 	fmt.Printf("Starting client mode\n")
 	
 	// Username prompt with retry logic for taken usernames
@@ -987,7 +987,7 @@ func runClient(serverAddr string, roomID string) {
 			fmt.Printf("Client connected successfully to room as %s\n", username)
 			
 			// Establish chat stream and start chat
-			err := startChatSession(serverAddr, roomID, username)
+			err := startChatSession(serverAddr, roomID, username, encryptionKey)
 			if err != nil {
 				// Provide specific error messages for chat session failures
 				if strings.Contains(err.Error(), "connection refused") {
@@ -1043,7 +1043,7 @@ func establishChatStream(serverAddr string) (pb.KeykammerService_ChatClient, *gr
 }
 
 // startChatSession handles the full chat session lifecycle
-func startChatSession(serverAddr, roomID, username string) error {
+func startChatSession(serverAddr, roomID, username string, encryptionKey []byte) error {
 	fmt.Printf("Establishing chat stream to %s...\n", serverAddr)
 	
 	// Establish the gRPC stream
@@ -1092,7 +1092,7 @@ func startChatSession(serverAddr, roomID, username string) error {
 	fmt.Printf(strings.Repeat("=", 50) + "\n")
 	
 	// Start input loop for sending messages
-	err = handleUserInput(stream, roomID, username, done)
+	err = handleUserInput(stream, roomID, username, encryptionKey, done)
 	if err != nil {
 		return fmt.Errorf("input handling error: %v", err)
 	}
@@ -1164,8 +1164,8 @@ func displayChatMessage(msg *pb.ChatMessage) {
 	fmt.Printf("[%s] %s: %s\n", timestamp, msg.Username, content)
 }
 
-// handleUserInput processes user input and sends messages
-func handleUserInput(stream pb.KeykammerService_ChatClient, roomID, username string, done chan bool) error {
+// handleUserInput processes user input and sends encrypted messages
+func handleUserInput(stream pb.KeykammerService_ChatClient, roomID, username string, key []byte, done chan bool) error {
 	scanner := bufio.NewScanner(os.Stdin)
 	
 	for {
@@ -1190,8 +1190,8 @@ func handleUserInput(stream pb.KeykammerService_ChatClient, roomID, username str
 			return nil
 		}
 		
-		// Send the message
-		err := sendMessage(stream, roomID, username, input)
+		// Send the encrypted message
+		err := sendMessage(stream, roomID, username, input, key)
 		if err != nil {
 			fmt.Printf("Failed to send message: %v\n", err)
 			continue
@@ -1205,14 +1205,12 @@ func handleUserInput(stream pb.KeykammerService_ChatClient, roomID, username str
 	return nil
 }
 
-// sendMessage sends a chat message through the stream
-func sendMessage(stream pb.KeykammerService_ChatClient, roomID, username, content string) error {
-	// For now, send content as plain text in encrypted field (will encrypt later)
-	msg := &pb.ChatMessage{
-		RoomId:           roomID,
-		Username:         username,
-		EncryptedContent: []byte(content), // Temporary: will encrypt this later
-		Timestamp:        time.Now().UnixNano(),
+// sendMessage sends an encrypted chat message through the stream
+func sendMessage(stream pb.KeykammerService_ChatClient, roomID, username, content string, key []byte) error {
+	// Create encrypted message
+	msg, err := createEncryptedMessage(roomID, username, content, key)
+	if err != nil {
+		return fmt.Errorf("failed to create encrypted message: %v", err)
 	}
 	
 	return stream.Send(msg)
@@ -1448,7 +1446,7 @@ func main() {
 	if *connectDirect != "" {
 		fmt.Printf("Direct connection mode: %s\n", *connectDirect)
 		fmt.Printf("Bypassing discovery server, connecting directly...\n")
-		runClient(*connectDirect, keyInfo.RoomID)
+		runClient(*connectDirect, keyInfo.RoomID, keyInfo.EncryptionKey)
 		return
 	}
 	
@@ -1474,7 +1472,7 @@ func main() {
 		} else if existingServerAddr != "" {
 			// Connect to existing room as client
 			fmt.Printf("\nExisting room found! Connecting as client to %s\n", existingServerAddr)
-			runClient(existingServerAddr, keyInfo.RoomID)
+			runClient(existingServerAddr, keyInfo.RoomID, keyInfo.EncryptionKey)
 			return
 		} else {
 			// Register room if lookup fails (new room)
@@ -1502,7 +1500,7 @@ func main() {
 		// Check for existing local server first
 		if isServerRunning(*port) {
 			fmt.Printf("Found existing server on localhost:%d, connecting as client\n", *port)
-			runClient(fmt.Sprintf("localhost:%d", *port), keyInfo.RoomID)
+			runClient(fmt.Sprintf("localhost:%d", *port), keyInfo.RoomID, keyInfo.EncryptionKey)
 			return
 		}
 		
