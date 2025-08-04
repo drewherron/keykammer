@@ -187,6 +187,49 @@ func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
+// createEncryptedMessage creates a ChatMessage with encrypted content
+func createEncryptedMessage(roomID, username, content string, key []byte) (*pb.ChatMessage, error) {
+	// Encrypt the content
+	encryptedContent, err := encrypt([]byte(content), key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to encrypt message: %v", err)
+	}
+	
+	// Create the message
+	msg := &pb.ChatMessage{
+		RoomId:           roomID,
+		Username:         username,
+		EncryptedContent: encryptedContent,
+		Timestamp:        time.Now().UnixNano(),
+	}
+	
+	return msg, nil
+}
+
+// decryptMessageContent decrypts the content of a ChatMessage
+func decryptMessageContent(msg *pb.ChatMessage, key []byte) (string, error) {
+	// Handle empty content (like initial validation messages)
+	if len(msg.EncryptedContent) == 0 {
+		return "", nil
+	}
+	
+	// Decrypt the content
+	plaintext, err := decrypt(msg.EncryptedContent, key)
+	if err != nil {
+		return "", fmt.Errorf("failed to decrypt message: %v", err)
+	}
+	
+	return string(plaintext), nil
+}
+
+// validateEncryptionKey checks if an encryption key is valid
+func validateEncryptionKey(key []byte) error {
+	if len(key) != AESKeySize {
+		return fmt.Errorf("invalid encryption key size: %d bytes (expected %d)", len(key), AESKeySize)
+	}
+	return nil
+}
+
 // Discovery server data structures
 
 // RoomRegistration represents a room registration request to the discovery server
