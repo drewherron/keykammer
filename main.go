@@ -53,6 +53,8 @@ var (
 	userList *tview.List
 	inputField *tview.InputField
 	mainFlex *tview.Flex
+	currentUsers []string // Track current user list for TUI
+	usersMutex sync.RWMutex // Protect currentUsers access
 )
 
 // getFileSize returns the size of a file in bytes
@@ -686,17 +688,36 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 	// Generate client ID
 	clientID := generateClientID()
 	
-	// Lock mutex and register client
+	// Wait for first message to get username
+	msg, err := stream.Recv()
+	if err != nil {
+		return fmt.Errorf("failed to receive initial message: %v", err)
+	}
+	
+	// Validate room ID
+	if msg.RoomId != s.roomID {
+		return fmt.Errorf("invalid room ID: expected %s, got %s", s.roomID[:16]+"...", msg.RoomId[:16]+"...")
+	}
+	
+	username := msg.Username
+	if username == "" {
+		return fmt.Errorf("username cannot be empty")
+	}
+	
+	// Lock mutex and register client with username
 	s.mutex.Lock()
 	s.clients[clientID] = &ClientInfo{
-		Username: "", // Will be set from username in message or join flow
+		Username: username,
 		Stream:   stream,
 	}
 	s.currentUsers++
 	clientCount := s.currentUsers
 	s.mutex.Unlock()
 	
-	fmt.Printf("Client %s registered for streaming (total clients: %d)\n", clientID[:8], clientCount)
+	fmt.Printf("Client %s (%s) registered for streaming (total clients: %d)\n", clientID[:8], username, clientCount)
+	
+	// Notify all clients about user list change
+	s.notifyUserListChange()
 	
 	// Check if room reaches capacity and trigger auto-delete
 	if s.maxUsers > 0 && clientCount >= s.maxUsers {
@@ -714,6 +735,9 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 		s.mutex.Unlock()
 		
 		fmt.Printf("Client %s disconnected (remaining clients: %d)\n", clientID[:8], remainingUsers)
+		
+		// Notify all remaining clients about user list change
+		s.notifyUserListChange()
 		
 		// Check if room should be deleted from discovery (if currentUsers == 0)
 		if remainingUsers == 0 {
@@ -783,6 +807,11 @@ func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
 				delete(s.clients, clientID)
 				s.currentUsers--
 				fmt.Printf("Removed failed client %s (remaining clients: %d)\n", clientID[:8], s.currentUsers)
+			}
+			
+			// Notify about user list change if any clients were removed
+			if len(failedClients) > 0 {
+				s.notifyUserListChange()
 			}
 		}()
 	}
@@ -1000,6 +1029,11 @@ func updateUserList(users []string) {
 		return
 	}
 	
+	usersMutex.Lock()
+	currentUsers = make([]string, len(users))
+	copy(currentUsers, users)
+	usersMutex.Unlock()
+	
 	app.QueueUpdateDraw(func() {
 		userList.Clear()
 		for _, user := range users {
@@ -1007,6 +1041,37 @@ func updateUserList(users []string) {
 		}
 		userList.SetTitle(fmt.Sprintf("Users (%d)", len(users)))
 	})
+}
+
+// notifyUserListChange sends a user list update message to all clients
+func (s *server) notifyUserListChange() {
+	userList := s.getUsernameList()
+	
+	// Create a system message with user list info
+	userListMsg := fmt.Sprintf("USERLIST:%s", strings.Join(userList, ","))
+	
+	// Broadcast to all clients as a system message
+	systemMsg := &pb.ChatMessage{
+		RoomId:           s.roomID,
+		Username:         "System",
+		EncryptedContent: []byte(userListMsg), // Store as plain text for system messages
+		Timestamp:        time.Now().UnixNano(),
+	}
+	
+	s.broadcast(systemMsg, "")
+}
+
+// getUsernameList returns just the list of usernames (for user list updates)
+func (s *server) getUsernameList() []string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	
+	var usernames []string
+	for _, clientInfo := range s.clients {
+		usernames = append(usernames, clientInfo.Username)
+	}
+	
+	return usernames
 }
 
 // runServer starts a gRPC server for the specified room and port
@@ -1162,6 +1227,9 @@ func startChatSession(serverAddr, roomID, username string, encryptionKey []byte)
 	addChatMessage("System", fmt.Sprintf("Successfully joined room %s as %s", roomID[:16]+"...", username))
 	addChatMessage("System", "Commands: /quit to exit, /help for help")
 	
+	// Initialize user list with current user (will be updated by server notifications)
+	updateUserList([]string{username})
+	
 	// Start message receive handler in goroutine
 	done := make(chan bool)
 	go handleIncomingMessagesTUI(stream, encryptionKey, done)
@@ -1284,7 +1352,27 @@ func handleIncomingMessagesTUI(stream pb.KeykammerService_ChatClient, key []byte
 
 // displayChatMessageTUI displays a decrypted message in the TUI chat pane
 func displayChatMessageTUI(msg *pb.ChatMessage, key []byte) {
-	// Decrypt the message content
+	// Handle system messages that don't need decryption
+	if msg.Username == "System" && len(msg.EncryptedContent) > 0 {
+		content := string(msg.EncryptedContent)
+		
+		// Check if this is a user list update message
+		if strings.HasPrefix(content, "USERLIST:") {
+			userListData := strings.TrimPrefix(content, "USERLIST:")
+			if userListData == "" {
+				updateUserList([]string{})
+			} else {
+				users := strings.Split(userListData, ",")
+				updateUserList(users)
+			}
+			return // Don't display user list updates as chat messages
+		}
+		
+		addChatMessage(msg.Username, content)
+		return
+	}
+	
+	// Decrypt the message content for regular messages
 	var content string
 	if len(msg.EncryptedContent) > 0 {
 		decrypted, err := decryptMessageContent(msg, key)
