@@ -44,6 +44,8 @@ const (
 	DefaultMaxRetries = 3 // number of retry attempts
 	// AES key size for AES-256
 	AESKeySize = 32 // 32 bytes for AES-256
+	// TUI configuration
+	MaxChatHistory = 1000 // Maximum number of chat messages to keep in memory
 )
 
 // TUI global variables
@@ -55,6 +57,8 @@ var (
 	mainFlex *tview.Flex
 	currentUsers []string // Track current user list for TUI
 	usersMutex sync.RWMutex // Protect currentUsers access
+	messageCount int // Track number of messages in chat view
+	messageMutex sync.Mutex // Protect message count access
 )
 
 // getFileSize returns the size of a file in bytes
@@ -971,7 +975,7 @@ func setupTUI(roomID, username string) error {
 	
 	// Create chat view (main pane)
 	chatView = tview.NewTextView()
-	chatView.SetBorder(true).SetTitle(fmt.Sprintf("Chat - Room: %s", roomID[:16]+"..."))
+	chatView.SetBorder(true).SetTitle(fmt.Sprintf("Chat - Room: %s [Connected]", roomID[:16]+"..."))
 	chatView.SetScrollable(true)
 	chatView.SetWrap(true)
 	chatView.SetDynamicColors(false)
@@ -1002,13 +1006,39 @@ func setupTUI(roomID, username string) error {
 	mainFlex.AddItem(topFlex, 0, 4, false)    // Top section takes 4/5 of height
 	mainFlex.AddItem(bottomFlex, 3, 0, true)  // Input takes 3 lines at bottom
 	
+	// Set up keyboard shortcuts and navigation
+	app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
+		switch event.Key() {
+		case tcell.KeyCtrlC:
+			// Ctrl+C to quit
+			app.Stop()
+			return nil
+		case tcell.KeyTab:
+			// Tab to cycle focus between panes
+			currentFocus := app.GetFocus()
+			if currentFocus == inputField {
+				app.SetFocus(chatView)
+			} else if currentFocus == chatView {
+				app.SetFocus(userList)
+			} else {
+				app.SetFocus(inputField)
+			}
+			return nil
+		case tcell.KeyEsc:
+			// Escape to return focus to input field
+			app.SetFocus(inputField)
+			return nil
+		}
+		return event
+	})
+	
 	app.SetRoot(mainFlex, true)
 	app.SetFocus(inputField)
 	
 	return nil
 }
 
-// addChatMessage adds a message to the chat pane
+// addChatMessage adds a message to the chat pane with history management
 func addChatMessage(username, message string) {
 	if chatView == nil {
 		return
@@ -1018,7 +1048,21 @@ func addChatMessage(username, message string) {
 	formattedMsg := fmt.Sprintf("[%s] %s: %s\n", timestamp, username, message)
 	
 	app.QueueUpdateDraw(func() {
+		messageMutex.Lock()
+		defer messageMutex.Unlock()
+		
+		// Check if we need to trim chat history
+		if messageCount >= MaxChatHistory {
+			// Clear the chat view and reset counter
+			chatView.Clear()
+			messageCount = 0
+			// Add a notice that history was cleared
+			fmt.Fprint(chatView, "--- Chat history cleared to save memory ---\n")
+			messageCount++
+		}
+		
 		fmt.Fprint(chatView, formattedMsg)
+		messageCount++
 		chatView.ScrollToEnd()
 	})
 }
@@ -1226,6 +1270,7 @@ func startChatSession(serverAddr, roomID, username string, encryptionKey []byte)
 	// Display welcome message in chat
 	addChatMessage("System", fmt.Sprintf("Successfully joined room %s as %s", roomID[:16]+"...", username))
 	addChatMessage("System", "Commands: /quit to exit, /help for help")
+	addChatMessage("System", "Use Tab to navigate between panes, Esc to return to input")
 	
 	// Initialize user list with current user (will be updated by server notifications)
 	updateUserList([]string{username})
@@ -1413,6 +1458,10 @@ func setupTUIInputHandling(stream pb.KeykammerService_ChatClient, roomID, userna
 				addChatMessage("System", "Available commands:")
 				addChatMessage("System", "  /quit - Exit the chat")
 				addChatMessage("System", "  /help - Show this help message")
+				addChatMessage("System", "Keyboard shortcuts:")
+				addChatMessage("System", "  Tab - Cycle between panes")
+				addChatMessage("System", "  Esc - Return to input field")
+				addChatMessage("System", "  Ctrl+C - Exit application")
 				return
 			}
 			
