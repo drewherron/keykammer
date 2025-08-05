@@ -24,6 +24,8 @@ import (
 
 	"golang.org/x/crypto/hkdf"
 	"google.golang.org/grpc"
+	"github.com/rivo/tview"
+	"github.com/gdamore/tcell/v2"
 
 	pb "keykammer/proto"
 )
@@ -42,6 +44,15 @@ const (
 	DefaultMaxRetries = 3 // number of retry attempts
 	// AES key size for AES-256
 	AESKeySize = 32 // 32 bytes for AES-256
+)
+
+// TUI global variables
+var (
+	app      *tview.Application
+	chatView *tview.TextView
+	userList *tview.List
+	inputField *tview.InputField
+	mainFlex *tview.Flex
 )
 
 // getFileSize returns the size of a file in bytes
@@ -925,6 +936,79 @@ func displayMessage(username, message string) {
 	fmt.Printf("[%s] %s: %s\n", timestamp, username, message)
 }
 
+// setupTUI initializes the TUI layout with chat, user list, and input panes
+func setupTUI(roomID, username string) error {
+	app = tview.NewApplication()
+	
+	// Create chat view (main pane)
+	chatView = tview.NewTextView()
+	chatView.SetBorder(true).SetTitle(fmt.Sprintf("Chat - Room: %s", roomID[:16]+"..."))
+	chatView.SetScrollable(true)
+	chatView.SetWrap(true)
+	chatView.SetDynamicColors(false)
+	
+	// Create user list (right pane)
+	userList = tview.NewList()
+	userList.SetBorder(true).SetTitle("Users")
+	userList.ShowSecondaryText(false)
+	
+	// Create input field (bottom pane)
+	inputField = tview.NewInputField()
+	inputField.SetBorder(true).SetTitle("Message")
+	inputField.SetLabel(fmt.Sprintf("%s: ", username))
+	
+	// Create layout with right sidebar for users and bottom input
+	rightFlex := tview.NewFlex().SetDirection(tview.FlexRow)
+	rightFlex.AddItem(userList, 0, 1, false)
+	
+	bottomFlex := tview.NewFlex().SetDirection(tview.FlexColumn)
+	bottomFlex.AddItem(inputField, 0, 1, true)
+	
+	mainFlex = tview.NewFlex().SetDirection(tview.FlexRow)
+	
+	topFlex := tview.NewFlex().SetDirection(tview.FlexColumn)
+	topFlex.AddItem(chatView, 0, 3, false)     // Chat takes 3/4 of width
+	topFlex.AddItem(rightFlex, 0, 1, false)   // User list takes 1/4 of width
+	
+	mainFlex.AddItem(topFlex, 0, 4, false)    // Top section takes 4/5 of height
+	mainFlex.AddItem(bottomFlex, 3, 0, true)  // Input takes 3 lines at bottom
+	
+	app.SetRoot(mainFlex, true)
+	app.SetFocus(inputField)
+	
+	return nil
+}
+
+// addChatMessage adds a message to the chat pane
+func addChatMessage(username, message string) {
+	if chatView == nil {
+		return
+	}
+	
+	timestamp := time.Now().Format("15:04:05")
+	formattedMsg := fmt.Sprintf("[%s] %s: %s\n", timestamp, username, message)
+	
+	app.QueueUpdateDraw(func() {
+		fmt.Fprint(chatView, formattedMsg)
+		chatView.ScrollToEnd()
+	})
+}
+
+// updateUserList updates the user list pane with current users
+func updateUserList(users []string) {
+	if userList == nil {
+		return
+	}
+	
+	app.QueueUpdateDraw(func() {
+		userList.Clear()
+		for _, user := range users {
+			userList.AddItem(user, "", 0, nil)
+		}
+		userList.SetTitle(fmt.Sprintf("Users (%d)", len(users)))
+	})
+}
+
 // runServer starts a gRPC server for the specified room and port
 func runServer(roomID string, port int, maxUsers int) {
 	// Server startup logging
@@ -1068,33 +1152,36 @@ func startChatSession(serverAddr, roomID, username string, encryptionKey []byte)
 		return fmt.Errorf("failed to send initial message: %v", err)
 	}
 	
-	fmt.Printf("Successfully joined chat room %s as %s\n", roomID[:16]+"...", username)
+	// Set up TUI interface
+	err = setupTUI(roomID, username)
+	if err != nil {
+		return fmt.Errorf("failed to setup TUI: %v", err)
+	}
+	
+	// Display welcome message in chat
+	addChatMessage("System", fmt.Sprintf("Successfully joined room %s as %s", roomID[:16]+"...", username))
+	addChatMessage("System", "Commands: /quit to exit, /help for help")
 	
 	// Start message receive handler in goroutine
 	done := make(chan bool)
-	go handleIncomingMessages(stream, encryptionKey, done)
+	go handleIncomingMessagesTUI(stream, encryptionKey, done)
+	
+	// Set up input handling for TUI
+	setupTUIInputHandling(stream, roomID, username, encryptionKey, done)
 	
 	// Set up signal handling for Ctrl+C
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
-	
 	go func() {
 		<-sigChan
-		fmt.Printf("\nReceived interrupt signal, exiting chat...\n")
+		app.Stop()
 		close(done)
 	}()
 	
-	fmt.Printf("\n" + strings.Repeat("=", 50) + "\n")
-	fmt.Printf("CHAT SESSION READY\n")
-	fmt.Printf("Room: %s\n", roomID[:16]+"...")
-	fmt.Printf("User: %s\n", username)
-	fmt.Printf("Commands: /quit to exit, Ctrl+C to force quit\n")
-	fmt.Printf(strings.Repeat("=", 50) + "\n")
-	
-	// Start input loop for sending messages
-	err = handleUserInput(stream, roomID, username, encryptionKey, done)
+	// Run the TUI application (this blocks until app.Stop() is called)
+	err = app.Run()
 	if err != nil {
-		return fmt.Errorf("input handling error: %v", err)
+		return fmt.Errorf("TUI error: %v", err)
 	}
 	
 	return nil
@@ -1147,6 +1234,107 @@ func handleIncomingMessages(stream pb.KeykammerService_ChatClient, key []byte, d
 			}
 		}
 	}
+}
+
+// handleIncomingMessagesTUI receives and displays decrypted messages in the TUI chat pane
+func handleIncomingMessagesTUI(stream pb.KeykammerService_ChatClient, key []byte, done chan bool) {
+	for {
+		select {
+		case <-done:
+			return
+		default:
+			// Create a channel to receive the message with timeout
+			msgChan := make(chan *pb.ChatMessage, 1)
+			errChan := make(chan error, 1)
+			
+			go func() {
+				msg, err := stream.Recv()
+				if err != nil {
+					errChan <- err
+				} else {
+					msgChan <- msg
+				}
+			}()
+			
+			// Wait for message or timeout
+			select {
+			case <-done:
+				return
+			case msg := <-msgChan:
+				// Display the received message in TUI
+				displayChatMessageTUI(msg, key)
+			case err := <-errChan:
+				// Check if we're supposed to stop
+				select {
+				case <-done:
+					return
+				default:
+					if err.Error() != "EOF" {
+						addChatMessage("System", fmt.Sprintf("Connection error: %v", err))
+					}
+					return
+				}
+			case <-time.After(30 * time.Second):
+				// Timeout - continue listening (this prevents blocking forever)
+				continue
+			}
+		}
+	}
+}
+
+// displayChatMessageTUI displays a decrypted message in the TUI chat pane
+func displayChatMessageTUI(msg *pb.ChatMessage, key []byte) {
+	// Decrypt the message content
+	var content string
+	if len(msg.EncryptedContent) > 0 {
+		decrypted, err := decryptMessageContent(msg, key)
+		if err != nil {
+			content = fmt.Sprintf("[decryption error: %v]", err)
+		} else {
+			content = decrypted
+		}
+	} else {
+		content = "[empty message]"
+	}
+	
+	addChatMessage(msg.Username, content)
+}
+
+// setupTUIInputHandling configures input field to send messages
+func setupTUIInputHandling(stream pb.KeykammerService_ChatClient, roomID, username string, key []byte, done chan bool) {
+	inputField.SetDoneFunc(func(keyPressed tcell.Key) {
+		if keyPressed == tcell.KeyEnter {
+			input := strings.TrimSpace(inputField.GetText())
+			inputField.SetText("")
+			
+			// Handle empty input
+			if input == "" {
+				return
+			}
+			
+			// Handle quit command
+			if input == "/quit" {
+				addChatMessage("System", "Exiting chat...")
+				app.Stop()
+				close(done)
+				return
+			}
+			
+			// Handle help command
+			if input == "/help" {
+				addChatMessage("System", "Available commands:")
+				addChatMessage("System", "  /quit - Exit the chat")
+				addChatMessage("System", "  /help - Show this help message")
+				return
+			}
+			
+			// Send the message
+			err := sendMessage(stream, roomID, username, input, key)
+			if err != nil {
+				addChatMessage("System", fmt.Sprintf("Failed to send message: %v", err))
+			}
+		}
+	})
 }
 
 // displayChatMessage formats and displays a decrypted chat message
