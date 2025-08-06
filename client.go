@@ -122,28 +122,30 @@ func startChatSession(serverAddr, roomID, username string, encryptionKey []byte)
 		return fmt.Errorf("failed to send initial message: %v", err)
 	}
 	
-	// Set up TUI interface
+	fmt.Printf("Initial message sent, setting up TUI...\n")
+	
+	// Set up TUI interface (welcome messages are added during setup)
 	err = setupTUI(roomID, username)
 	if err != nil {
 		return fmt.Errorf("failed to setup TUI: %v", err)
 	}
 	
-	// Display welcome message in chat
-	addChatMessage("System", fmt.Sprintf("Successfully joined room %s as %s", roomID[:16]+"...", username))
-	addChatMessage("System", "Commands: /quit to exit, /help for help")
-	addChatMessage("System", "Use Tab to navigate between panes, Esc to return to input")
+	fmt.Printf("TUI setup complete, starting message handlers...\n")
 	
-	// Initialize user list with current user (will be updated by server notifications)
-	updateUserList([]string{username})
+	// User list is initialized during TUI setup, will be updated by server notifications
 	
 	// Start message receive handler in goroutine
 	done := make(chan bool)
+	fmt.Printf("Starting incoming message handler...\n")
 	go handleIncomingMessagesTUI(stream, encryptionKey, done)
 	
 	// Set up input handling for TUI
+	fmt.Printf("Setting up input handling...\n")
 	setupTUIInputHandling(stream, roomID, username, encryptionKey, done)
+	fmt.Printf("Input handling setup complete...\n")
 	
 	// Set up signal handling for Ctrl+C
+	fmt.Printf("Setting up signal handling...\n")
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 	go func() {
@@ -153,11 +155,13 @@ func startChatSession(serverAddr, roomID, username string, encryptionKey []byte)
 	}()
 	
 	// Run the TUI application (this blocks until app.Stop() is called)
+	fmt.Printf("Starting TUI application...\n")
 	err = app.Run()
 	if err != nil {
 		return fmt.Errorf("TUI error: %v", err)
 	}
 	
+	fmt.Printf("TUI application exited\n")
 	return nil
 }
 
