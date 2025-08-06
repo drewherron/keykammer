@@ -1,0 +1,382 @@
+package main
+
+import (
+	"context"
+	"fmt"
+	"log"
+	"net"
+	"os"
+	"os/signal"
+	"strings"
+	"sync"
+	"time"
+
+	"google.golang.org/grpc"
+	pb "keykammer/proto"
+)
+
+// ClientInfo stores information about a connected client
+type ClientInfo struct {
+	Username string
+	Stream   interface{} // pb.KeykammerService_ChatServer when streaming, nil for JoinRoom-only clients
+}
+
+// Server implementation
+type server struct {
+	pb.UnimplementedKeykammerServiceServer
+	roomID       string
+	port         int
+	maxUsers     int // Maximum users allowed in room (0 = unlimited)
+	currentUsers int // Current number of connected users
+	clients      map[string]*ClientInfo
+	usernames    map[string]string // username -> clientID
+	mutex        sync.RWMutex
+}
+
+// newServer creates a new server instance
+func newServer(roomID string, port int, maxUsers int) *server {
+	return &server{
+		roomID:       roomID,
+		port:         port,
+		maxUsers:     maxUsers,
+		currentUsers: 0,
+		clients:      make(map[string]*ClientInfo),
+		usernames:    make(map[string]string),
+	}
+}
+
+// Chat handles bidirectional streaming chat
+func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
+	// Generate client ID
+	clientID := generateClientID()
+	
+	// Wait for first message to get username
+	msg, err := stream.Recv()
+	if err != nil {
+		return fmt.Errorf("failed to receive initial message: %v", err)
+	}
+	
+	// Validate room ID
+	if msg.RoomId != s.roomID {
+		return fmt.Errorf("invalid room ID: expected %s, got %s", s.roomID[:16]+"...", msg.RoomId[:16]+"...")
+	}
+	
+	username := msg.Username
+	if username == "" {
+		return fmt.Errorf("username cannot be empty")
+	}
+	
+	// Lock mutex and register client with username
+	s.mutex.Lock()
+	s.clients[clientID] = &ClientInfo{
+		Username: username,
+		Stream:   stream,
+	}
+	s.currentUsers++
+	clientCount := s.currentUsers
+	s.mutex.Unlock()
+	
+	fmt.Printf("Client %s (%s) registered for streaming (total clients: %d)\n", clientID[:8], username, clientCount)
+	
+	// Notify all clients about user list change
+	s.notifyUserListChange()
+	
+	// Check if room reaches capacity and trigger auto-delete
+	if s.maxUsers > 0 && clientCount >= s.maxUsers {
+		fmt.Printf("Room capacity reached (%d/%d) - triggering auto-delete from discovery\n", clientCount, s.maxUsers)
+		// In full implementation, would call deleteRoomFromDiscovery(s.roomID)
+		// For now, just log the event
+	}
+	
+	// Add defer function to remove client on disconnect
+	defer func() {
+		s.mutex.Lock()
+		delete(s.clients, clientID)
+		s.currentUsers--
+		remainingUsers := s.currentUsers
+		s.mutex.Unlock()
+		
+		fmt.Printf("Client %s disconnected (remaining clients: %d)\n", clientID[:8], remainingUsers)
+		
+		// Notify all remaining clients about user list change
+		s.notifyUserListChange()
+		
+		// Check if room should be deleted from discovery (if currentUsers == 0)
+		if remainingUsers == 0 {
+			fmt.Printf("Room is now empty - would trigger discovery cleanup in full implementation\n")
+		}
+	}()
+	
+	// Start message receive loop
+	for {
+		msg, err := stream.Recv()
+		if err != nil {
+			fmt.Printf("Client %s stream receive error: %v\n", clientID[:8], err)
+			break
+		}
+		
+		// Log received message for now
+		fmt.Printf("Received message from client %s: room=%s, username=%s\n", 
+			clientID[:8], msg.RoomId[:16]+"...", msg.Username)
+		
+		// Broadcast message to other clients
+		s.broadcast(msg, clientID)
+	}
+	
+	return nil
+}
+
+// broadcast sends a message to all connected clients except the sender
+func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
+	s.mutex.RLock()
+	
+	var failedClients []string
+	
+	// Iterate through all clients
+	for clientID, clientInfo := range s.clients {
+		// Skip sender
+		if clientID == senderID {
+			continue
+		}
+		
+		// Skip clients without active streams
+		if clientInfo.Stream == nil {
+			continue
+		}
+		
+		// Send message to client stream
+		if stream, ok := clientInfo.Stream.(pb.KeykammerService_ChatServer); ok {
+			err := stream.Send(msg)
+			if err != nil {
+				fmt.Printf("Failed to send message to client %s: %v\n", clientID[:8], err)
+				// Mark client for removal
+				failedClients = append(failedClients, clientID)
+			} else {
+				fmt.Printf("Broadcasted message to client %s\n", clientID[:8])
+			}
+		}
+	}
+	
+	s.mutex.RUnlock()
+	
+	// Remove failed clients in a separate goroutine to avoid deadlock
+	if len(failedClients) > 0 {
+		go func() {
+			s.mutex.Lock()
+			defer s.mutex.Unlock()
+			
+			for _, clientID := range failedClients {
+				delete(s.clients, clientID)
+				s.currentUsers--
+				fmt.Printf("Removed failed client %s (remaining clients: %d)\n", clientID[:8], s.currentUsers)
+			}
+			
+			// Notify about user list change if any clients were removed
+			if len(failedClients) > 0 {
+				s.notifyUserListChange()
+			}
+		}()
+	}
+}
+
+// JoinRoom handles room join requests and validates usernames
+func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinResponse, error) {
+	fmt.Printf("Client attempting to join room: %s with username: %s\n", req.RoomId, req.Username)
+	
+	// Room ID validation
+	if req.RoomId != s.roomID {
+		fmt.Printf("Room ID mismatch: expected %s, got %s\n", s.roomID[:16]+"...", req.RoomId[:16]+"...")
+		return &pb.JoinResponse{
+			Success: false,
+			Message: "Invalid room ID",
+		}, nil
+	}
+	
+	// Check capacity before accepting new connections
+	s.mutex.RLock()
+	currentCount := s.currentUsers
+	maxCount := s.maxUsers
+	s.mutex.RUnlock()
+	
+	if maxCount > 0 && currentCount >= maxCount {
+		fmt.Printf("Room at capacity (%d/%d) - rejecting new connection\n", currentCount, maxCount)
+		return &pb.JoinResponse{
+			Success: false,
+			Message: fmt.Sprintf("Room is full (%d/%d users)", currentCount, maxCount),
+		}, nil
+	}
+	
+	// Extract and validate username
+	username := req.Username
+	
+	// Validate username format
+	if err := validateUsername(username); err != nil {
+		fmt.Printf("Username validation failed: %v\n", err)
+		return &pb.JoinResponse{
+			Success: false,
+			Message: fmt.Sprintf("Invalid username: %v", err),
+		}, nil
+	}
+	
+	// Check if username is available
+	if !s.isUsernameAvailable(username) {
+		// Get taken usernames and return them in response
+		takenUsernames := s.getTakenUsernames()
+		fmt.Printf("Username %s is already taken. Taken usernames: %v\n", username, takenUsernames)
+		return &pb.JoinResponse{
+			Success:        false,
+			Message:        fmt.Sprintf("Username '%s' is already taken", username),
+			TakenUsernames: takenUsernames,
+		}, nil
+	}
+	
+	// Add client to tracking and register username
+	clientID := generateClientID()
+	
+	s.mutex.Lock()
+	s.clients[clientID] = &ClientInfo{
+		Username: username,
+		Stream:   nil, // Stream will be set when client calls Chat method
+	}
+	// Register username mapping
+	s.usernames[username] = clientID
+	clientCount := len(s.clients)
+	s.mutex.Unlock()
+	
+	fmt.Printf("Client %s (%s) successfully joined room (total clients: %d)\n", clientID[:8], username, clientCount)
+	return &pb.JoinResponse{
+		Success:     true,
+		Message:     fmt.Sprintf("Successfully joined room as %s", username),
+		ClientCount: int32(clientCount),
+	}, nil
+}
+
+// isUsernameAvailable checks if a username is not already taken
+func (s *server) isUsernameAvailable(username string) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	_, exists := s.usernames[username]
+	return !exists
+}
+
+// getTakenUsernames returns a list of currently taken usernames
+func (s *server) getTakenUsernames() []string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	
+	taken := make([]string, 0, len(s.usernames))
+	for username := range s.usernames {
+		taken = append(taken, username)
+	}
+	return taken
+}
+
+// removeClient cleans up a client on disconnect
+func (s *server) removeClient(clientID string) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	
+	// Get client info before removing
+	clientInfo, exists := s.clients[clientID]
+	if !exists {
+		return
+	}
+	
+	username := clientInfo.Username
+	
+	// Remove from clients map
+	delete(s.clients, clientID)
+	
+	// Remove from usernames map
+	delete(s.usernames, username)
+	
+	// Log the disconnect
+	fmt.Printf("Client %s (%s) left the room (remaining clients: %d)\n", 
+		clientID[:8], username, len(s.clients))
+}
+
+// getUserList returns a formatted list of connected users
+func (s *server) getUserList() string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	
+	if len(s.clients) == 0 {
+		return "No users currently in the room."
+	}
+	
+	var userList []string
+	for _, clientInfo := range s.clients {
+		userList = append(userList, clientInfo.Username)
+	}
+	
+	return fmt.Sprintf("Users in room (%d): %s", len(s.clients), strings.Join(userList, ", "))
+}
+
+// handleUserListCommand processes /users or /who commands
+func (s *server) handleUserListCommand() {
+	userList := s.getUserList()
+	displayMessage("System", userList)
+}
+
+// notifyUserListChange sends a user list update message to all clients
+func (s *server) notifyUserListChange() {
+	userList := s.getUsernameList()
+	
+	// Create a system message with user list info
+	userListMsg := fmt.Sprintf("USERLIST:%s", strings.Join(userList, ","))
+	
+	// Broadcast to all clients as a system message
+	systemMsg := &pb.ChatMessage{
+		RoomId:           s.roomID,
+		Username:         "System",
+		EncryptedContent: []byte(userListMsg), // Store as plain text for system messages
+		Timestamp:        time.Now().UnixNano(),
+	}
+	
+	s.broadcast(systemMsg, "")
+}
+
+// getUsernameList returns just the list of usernames (for user list updates)
+func (s *server) getUsernameList() []string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	
+	var usernames []string
+	for _, clientInfo := range s.clients {
+		usernames = append(usernames, clientInfo.Username)
+	}
+	
+	return usernames
+}
+
+// runServer starts a gRPC server for the specified room and port
+func runServer(roomID string, port int, maxUsers int) {
+	// Server startup logging
+	fmt.Printf("Starting server on port %d for room %s\n", port, roomID[:16]+"...")
+	
+	// Create TCP listener and gRPC server
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+	if err != nil {
+		log.Fatalf("Failed to listen on port %d: %v", port, err)
+	}
+	// Create server instance with room ID, port, and max users
+	serverInstance := newServer(roomID, port, maxUsers)
+	
+	// Graceful shutdown handling
+	grpcServer := grpc.NewServer()
+	pb.RegisterKeykammerServiceServer(grpcServer, serverInstance)
+	// Set up signal handling for graceful shutdown
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	
+	go func() {
+		<-sigChan
+		fmt.Printf("\nReceived interrupt signal, shutting down server...\n")
+		grpcServer.GracefulStop()
+	}()
+	
+	fmt.Printf("Server ready and listening on :%d\n", port)
+	if err := grpcServer.Serve(lis); err != nil {
+		log.Fatalf("Failed to serve: %v", err)
+	}
+}
