@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -277,6 +278,16 @@ func displayChatMessageTUI(msg *pb.ChatMessage, key []byte) {
 // setupTUIInputHandling configures input field to send messages
 func setupTUIInputHandling(stream pb.KeykammerService_ChatClient, roomID, username string, key []byte, done chan bool) {
 	inputField.SetDoneFunc(func(keyPressed tcell.Key) {
+		if keyPressed == tcell.KeyCtrlD {
+			// Ctrl+D pressed - exit program entirely
+			if globalCleanupFunc != nil {
+				fmt.Printf("\nCtrl+D pressed. Cleaning up...\n")
+				globalCleanupFunc()
+			}
+			fmt.Printf("Exiting...\n")
+			os.Exit(0)
+			return
+		}
 		if keyPressed == tcell.KeyEnter {
 			input := strings.TrimSpace(inputField.GetText())
 			inputField.SetText("")
@@ -304,6 +315,7 @@ func setupTUIInputHandling(stream pb.KeykammerService_ChatClient, roomID, userna
 				addChatMessage("System", "  Tab - Cycle between panes")
 				addChatMessage("System", "  Esc - Return to input field")
 				addChatMessage("System", "  Ctrl+C - Exit application")
+				addChatMessage("System", "  Ctrl+D - Exit application")
 				return
 			}
 			

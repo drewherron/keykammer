@@ -24,6 +24,10 @@ func runClient(serverAddr string, roomID string, encryptionKey []byte) {
 		// Get and validate username format
 		for {
 			username = promptUsername()
+			if username == "" {
+				// Ctrl+D pressed - continue prompting without penalty
+				continue
+			}
 			if err := validateUsername(username); err != nil {
 				fmt.Printf("Invalid username: %v\n", err)
 				continue
@@ -291,8 +295,14 @@ func promptUsername() string {
 		reader := bufio.NewReader(os.Stdin)
 		username, err := reader.ReadString('\n')
 		if err != nil {
-			log.Printf("Error reading username: %v", err)
-			usernameChan <- "anonymous"
+			if err.Error() == "EOF" {
+				// Ctrl+D pressed - return empty string to allow re-prompting
+				fmt.Printf("\n")
+				usernameChan <- ""
+			} else {
+				log.Printf("Error reading username: %v", err)
+				usernameChan <- ""
+			}
 		} else {
 			usernameChan <- strings.TrimSpace(username)
 		}
