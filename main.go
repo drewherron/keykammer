@@ -108,7 +108,7 @@ func main() {
 				fmt.Printf("Falling back to localhost-only mode\n")
 			}
 			
-			runServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey)
+			runServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey, *discoveryServer)
 		} else if existingServerAddr != "" {
 			// Connect to existing room as client
 			fmt.Printf("\nExisting room found! Connecting as client to %s\n", existingServerAddr)
@@ -127,7 +127,7 @@ func main() {
 				fmt.Printf("Starting in localhost-only mode\n")
 			}
 			
-			runServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey)
+			runServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey, *discoveryServer)
 		}
 	} else {
 		// Discovery server unavailable - fall back to localhost mode
@@ -141,6 +141,6 @@ func main() {
 		
 		// Start new server on localhost
 		fmt.Printf("Starting new server on localhost:%d\n", *port)
-		runServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey)
+		runServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey, "")
 	}
 }

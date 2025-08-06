@@ -380,7 +380,7 @@ func runServer(roomID string, port int, maxUsers int) {
 }
 
 // runServerWithTUI starts a server in background and then launches TUI for the server owner
-func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byte) {
+func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byte, discoveryURL string) {
 	fmt.Printf("Starting server on port %d for room %s\n", port, roomID[:16]+"...")
 	
 	// Start server in background goroutine
@@ -429,4 +429,19 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 	// Connect to our own server as a client to show TUI
 	serverAddr := fmt.Sprintf("localhost:%d", port)
 	runClient(serverAddr, roomID, encryptionKey)
+	
+	// When TUI exits (user quit), clean up the room from discovery server
+	fmt.Printf("Server owner quit, cleaning up...\n")
+	if discoveryURL != "" {
+		err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, DefaultMaxRetries)
+		if err != nil {
+			fmt.Printf("Failed to delete room from discovery: %v\n", err)
+		} else {
+			fmt.Printf("Room deleted from discovery server\n")
+		}
+	}
+	
+	// TODO: Gracefully shutdown the server goroutine
+	fmt.Printf("Shutting down server...\n")
+	os.Exit(0) // For now, force exit to ensure clean shutdown
 }
