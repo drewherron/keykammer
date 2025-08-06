@@ -140,6 +140,10 @@ func startChatSession(serverAddr, roomID, username string, encryptionKey []byte)
 	signal.Notify(sigChan, os.Interrupt)
 	go func() {
 		<-sigChan
+		if globalCleanupFunc != nil {
+			fmt.Printf("\nInterrupted. Cleaning up...\n")
+			globalCleanupFunc()
+		}
 		app.Stop()
 		close(done)
 	}()
@@ -263,16 +267,50 @@ func tryConnectAsClient(addr string, roomID string, username string) bool {
 	}
 }
 
-// promptUsername prompts the user to enter a username
+// Global cleanup function that can be called from signal handlers
+var globalCleanupFunc func() = nil
+
+// setGlobalCleanup sets the global cleanup function for signal handling
+func setGlobalCleanup(cleanupFunc func()) {
+	globalCleanupFunc = cleanupFunc
+}
+
+// promptUsername prompts the user to enter a username with Ctrl+C handling
 func promptUsername() string {
-	fmt.Print("Enter username: ")
-	reader := bufio.NewReader(os.Stdin)
-	username, err := reader.ReadString('\n')
-	if err != nil {
-		log.Printf("Error reading username: %v", err)
-		return "anonymous"
+	// Set up signal handling for Ctrl+C during username prompt
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	defer signal.Stop(sigChan)
+	
+	// Channel for username input
+	usernameChan := make(chan string, 1)
+	
+	// Start username input in goroutine
+	go func() {
+		fmt.Print("Enter username: ")
+		reader := bufio.NewReader(os.Stdin)
+		username, err := reader.ReadString('\n')
+		if err != nil {
+			log.Printf("Error reading username: %v", err)
+			usernameChan <- "anonymous"
+		} else {
+			usernameChan <- strings.TrimSpace(username)
+		}
+	}()
+	
+	// Wait for either username input or Ctrl+C
+	select {
+	case username := <-usernameChan:
+		return username
+	case <-sigChan:
+		fmt.Printf("\nInterrupted during username entry. Cleaning up...\n")
+		if globalCleanupFunc != nil {
+			globalCleanupFunc()
+		}
+		fmt.Printf("Exiting...\n")
+		os.Exit(1)
+		return "" // Never reached
 	}
-	return strings.TrimSpace(username)
 }
 
 // validateUsername ensures the username meets requirements
