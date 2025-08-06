@@ -26,9 +26,7 @@ var (
 
 // setupTUI initializes the TUI layout with chat, user list, and input panes
 func setupTUI(roomID, username string) error {
-	fmt.Printf("Creating TUI application...\n")
 	app = tview.NewApplication()
-	fmt.Printf("TUI application created, setting up layout...\n")
 	
 	// Create chat view (main pane)
 	chatView = tview.NewTextView()
@@ -106,7 +104,6 @@ func setupTUI(roomID, username string) error {
 	currentUsers = []string{username}
 	usersMutex.Unlock()
 	
-	fmt.Printf("TUI setup completed successfully\n")
 	return nil
 }
 
@@ -141,7 +138,6 @@ func addChatMessage(username, message string) {
 
 // updateUserList updates the user list pane with current users
 func updateUserList(users []string) {
-	fmt.Printf("Updating user list with %d users...\n", len(users))
 	if userList == nil {
 		return
 	}

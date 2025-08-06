@@ -86,8 +86,6 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 	clientCount := s.currentUsers // Don't increment - user already counted in JoinRoom
 	s.mutex.Unlock()
 	
-	fmt.Printf("Client %s (%s) registered for streaming (total clients: %d)\n", clientID[:8], username, clientCount)
-	
 	// Notify all clients about user list change
 	s.notifyUserListChange()
 	
@@ -125,10 +123,6 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 			break
 		}
 		
-		// Log received message for now
-		fmt.Printf("Received message from client %s: room=%s, username=%s\n", 
-			clientID[:8], msg.RoomId[:16]+"...", msg.Username)
-		
 		// Broadcast message to other clients
 		s.broadcast(msg, clientID)
 	}
@@ -157,8 +151,6 @@ func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
 				fmt.Printf("Failed to send message to client %s: %v\n", clientID[:8], err)
 				// Mark client for removal
 				failedClients = append(failedClients, clientID)
-			} else {
-				fmt.Printf("Broadcasted message to client %s\n", clientID[:8])
 			}
 		}
 	}
