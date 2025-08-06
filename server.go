@@ -416,6 +416,14 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		go func() {
 			<-sigChan
 			fmt.Printf("\nReceived interrupt signal, shutting down server...\n")
+			
+			// Use a timeout for graceful shutdown to avoid hanging
+			go func() {
+				time.Sleep(2 * time.Second) // Give 2 seconds for graceful shutdown
+				fmt.Printf("Force stopping server...\n")
+				grpcServer.Stop() // Force stop if graceful shutdown takes too long
+			}()
+			
 			grpcServer.GracefulStop()
 		}()
 		
@@ -446,6 +454,19 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 	}
 	fmt.Printf("  Local network: keykammer -connect localhost:%d -keyfile SAME_FILE\n", port)
 	fmt.Printf("  Internet: keykammer -connect %s:%d -keyfile SAME_FILE\n\n", publicIP, port)
+	
+	// Set up cleanup function for discovery server deletion
+	setGlobalCleanup(func() {
+		if discoveryURL != "" {
+			fmt.Printf("Deleting room from discovery server...\n")
+			err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, DefaultMaxRetries)
+			if err != nil {
+				fmt.Printf("Failed to delete room from discovery: %v\n", err)
+			} else {
+				fmt.Printf("Room cleanup completed\n")
+			}
+		}
+	})
 	
 	// Connect to our own server as a client to show TUI
 	serverAddr := fmt.Sprintf("localhost:%d", port)
