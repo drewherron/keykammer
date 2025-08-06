@@ -28,22 +28,40 @@ var (
 func setupTUI(roomID, username string) error {
 	app = tview.NewApplication()
 	
+	// Set application to use terminal default colors
+	tview.Styles.PrimitiveBackgroundColor = tcell.ColorDefault
+	tview.Styles.ContrastBackgroundColor = tcell.ColorDefault
+	tview.Styles.MoreContrastBackgroundColor = tcell.ColorDefault
+	tview.Styles.BorderColor = tcell.ColorDefault
+	tview.Styles.TitleColor = tcell.ColorDefault
+	tview.Styles.GraphicsColor = tcell.ColorDefault
+	tview.Styles.PrimaryTextColor = tcell.ColorDefault
+	tview.Styles.SecondaryTextColor = tcell.ColorDefault
+	tview.Styles.TertiaryTextColor = tcell.ColorDefault
+	tview.Styles.InverseTextColor = tcell.ColorDefault
+	
 	// Create chat view (main pane)
 	chatView = tview.NewTextView()
 	chatView.SetBorder(true).SetTitle("Keykammer - OPEN")
 	chatView.SetScrollable(true)
 	chatView.SetWrap(true)
 	chatView.SetDynamicColors(false)
+	chatView.SetTextColor(tcell.ColorDefault)
+	chatView.SetBackgroundColor(tcell.ColorDefault)
 	
 	// Create user list (right pane)
 	userList = tview.NewList()
 	userList.SetBorder(true).SetTitle("Users")
 	userList.ShowSecondaryText(false)
+	userList.SetMainTextColor(tcell.ColorDefault)
+	userList.SetBackgroundColor(tcell.ColorDefault)
 	
 	// Create input field (bottom pane)
 	inputField = tview.NewInputField()
-	inputField.SetBorder(true).SetTitle("Message")
+	inputField.SetBorder(true).SetTitle("")
 	inputField.SetLabel(fmt.Sprintf("%s: ", username))
+	inputField.SetFieldTextColor(tcell.ColorDefault)
+	inputField.SetFieldBackgroundColor(tcell.ColorDefault)
 	
 	// Create layout with right sidebar for users and bottom input
 	rightFlex := tview.NewFlex().SetDirection(tview.FlexRow)
