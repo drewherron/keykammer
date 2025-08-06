@@ -66,14 +66,24 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 		return fmt.Errorf("username cannot be empty")
 	}
 	
-	// Lock mutex and register client with username
+	// Find existing client by username and update with stream
 	s.mutex.Lock()
-	s.clients[clientID] = &ClientInfo{
-		Username: username,
-		Stream:   stream,
+	existingClientID := s.usernames[username]
+	if existingClientID == "" {
+		s.mutex.Unlock()
+		return fmt.Errorf("username %s not found in room (must call JoinRoom first)", username)
 	}
-	s.currentUsers++
-	clientCount := s.currentUsers
+	
+	// Update existing client with stream
+	if clientInfo, exists := s.clients[existingClientID]; exists {
+		clientInfo.Stream = stream
+		clientID = existingClientID // Use the existing client ID
+	} else {
+		s.mutex.Unlock()
+		return fmt.Errorf("client info not found for username %s", username)
+	}
+	
+	clientCount := s.currentUsers // Don't increment - user already counted in JoinRoom
 	s.mutex.Unlock()
 	
 	fmt.Printf("Client %s (%s) registered for streaming (total clients: %d)\n", clientID[:8], username, clientCount)
@@ -126,7 +136,7 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 	return nil
 }
 
-// broadcast sends a message to all connected clients except the sender
+// broadcast sends a message to all connected clients including the sender
 func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
 	s.mutex.RLock()
 	
@@ -134,10 +144,6 @@ func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
 	
 	// Iterate through all clients
 	for clientID, clientInfo := range s.clients {
-		// Skip sender
-		if clientID == senderID {
-			continue
-		}
 		
 		// Skip clients without active streams
 		if clientInfo.Stream == nil {
