@@ -254,9 +254,10 @@ func setupTUIInputHandling(stream pb.KeykammerService_ChatClient, roomID, userna
 			
 			// Handle quit command
 			if input == "/quit" {
-				addChatMessage("System", "Exiting chat...")
+				go func() {
+					close(done)
+				}()
 				app.Stop()
-				close(done)
 				return
 			}
 			
