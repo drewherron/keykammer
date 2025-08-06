@@ -30,11 +30,12 @@ type server struct {
 	currentUsers int // Current number of connected users
 	clients      map[string]*ClientInfo
 	usernames    map[string]string // username -> clientID
+	discoveryURL string            // URL for discovery server (empty if none)
 	mutex        sync.RWMutex
 }
 
 // newServer creates a new server instance
-func newServer(roomID string, port int, maxUsers int) *server {
+func newServer(roomID string, port int, maxUsers int, discoveryURL string) *server {
 	return &server{
 		roomID:       roomID,
 		port:         port,
@@ -42,6 +43,7 @@ func newServer(roomID string, port int, maxUsers int) *server {
 		currentUsers: 0,
 		clients:      make(map[string]*ClientInfo),
 		usernames:    make(map[string]string),
+		discoveryURL: discoveryURL,
 	}
 }
 
@@ -91,9 +93,17 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 	
 	// Check if room reaches capacity and trigger auto-delete
 	if s.maxUsers > 0 && clientCount >= s.maxUsers {
-		fmt.Printf("Room capacity reached (%d/%d) - triggering auto-delete from discovery\n", clientCount, s.maxUsers)
-		// In full implementation, would call deleteRoomFromDiscovery(s.roomID)
-		// For now, just log the event
+		if s.discoveryURL != "" {
+			go func() {
+				err := deleteRoomFromDiscoveryWithRetry(s.roomID, s.discoveryURL, DefaultMaxRetries)
+				if err != nil {
+					addChatMessage("System", fmt.Sprintf("Room full but failed to update discovery: %v", err))
+				} else {
+					addChatMessage("System", "Room is now full and private (removed from discovery)")
+					updateRoomStatus(false) // Set to CLOSED
+				}
+			}()
+		}
 	}
 	
 	// Add defer function to remove client on disconnect
@@ -358,7 +368,7 @@ func runServer(roomID string, port int, maxUsers int) {
 		log.Fatalf("Failed to listen on port %d: %v", port, err)
 	}
 	// Create server instance with room ID, port, and max users
-	serverInstance := newServer(roomID, port, maxUsers)
+	serverInstance := newServer(roomID, port, maxUsers, "")
 	
 	// Graceful shutdown handling
 	grpcServer := grpc.NewServer()
@@ -393,7 +403,7 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		}
 		
 		// Create server instance with room ID, port, and max users
-		serverInstance := newServer(roomID, port, maxUsers)
+		serverInstance := newServer(roomID, port, maxUsers, discoveryURL)
 		
 		// Graceful shutdown handling
 		grpcServer := grpc.NewServer()
@@ -437,7 +447,7 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		if err != nil {
 			fmt.Printf("Failed to delete room from discovery: %v\n", err)
 		} else {
-			fmt.Printf("Room deleted from discovery server\n")
+			fmt.Printf("Room cleanup completed (may have already been removed from discovery)\n")
 		}
 	}
 	

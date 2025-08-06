@@ -30,7 +30,7 @@ func setupTUI(roomID, username string) error {
 	
 	// Create chat view (main pane)
 	chatView = tview.NewTextView()
-	chatView.SetBorder(true).SetTitle(fmt.Sprintf("Chat - Room: %s [Connected]", roomID[:16]+"..."))
+	chatView.SetBorder(true).SetTitle("Keykammer - OPEN")
 	chatView.SetScrollable(true)
 	chatView.SetWrap(true)
 	chatView.SetDynamicColors(false)
@@ -105,6 +105,22 @@ func setupTUI(roomID, username string) error {
 	usersMutex.Unlock()
 	
 	return nil
+}
+
+// updateRoomStatus updates the chat title to show OPEN/CLOSED status
+func updateRoomStatus(isOpen bool) {
+	if chatView == nil {
+		return
+	}
+	
+	status := "CLOSED"
+	if isOpen {
+		status = "OPEN"
+	}
+	
+	app.QueueUpdateDraw(func() {
+		chatView.SetTitle(fmt.Sprintf("Keykammer - %s", status))
+	})
 }
 
 // addChatMessage adds a message to the chat pane with history management
