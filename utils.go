@@ -60,3 +60,11 @@ func isServerRunning(port int) bool {
 	conn.Close()
 	return true
 }
+
+// formatRoomID formats a room ID as first8...last8 digits (crypto address style)
+func formatRoomID(roomID string) string {
+	if len(roomID) <= 16 {
+		return roomID
+	}
+	return fmt.Sprintf("%s...%s", roomID[:8], roomID[len(roomID)-8:])
+}
