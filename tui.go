@@ -110,7 +110,7 @@ func setupTUI(roomID, username string) error {
 	
 	// Add initial welcome messages directly to chat view
 	timestamp := time.Now().Format("15:04:05")
-	fmt.Fprintf(chatView, "[%s] System: Successfully joined room %s as %s\n", timestamp, roomID[:16]+"...", username)
+	fmt.Fprintf(chatView, "[%s] System: Successfully joined room %s as %s\n", timestamp, formatRoomID(roomID), username)
 	fmt.Fprintf(chatView, "[%s] System: Commands: /quit to exit, /help for help\n", timestamp)
 	fmt.Fprintf(chatView, "[%s] System: Use Tab to navigate between panes, Esc to return to input\n", timestamp)
 	messageCount = 3 // Track the messages we just added

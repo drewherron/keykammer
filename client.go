@@ -239,7 +239,7 @@ func tryConnectAsClient(addr string, roomID string, username string) bool {
 	}
 	
 	if resp.Success {
-		fmt.Printf("Successfully joined room %s\n", roomID[:16]+"...")
+		fmt.Printf("Successfully joined room %s\n", formatRoomID(roomID))
 		if resp.ClientCount > 0 {
 			fmt.Printf("Room participants: %d users connected\n", resp.ClientCount)
 		}
