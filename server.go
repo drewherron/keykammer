@@ -380,3 +380,55 @@ func runServer(roomID string, port int, maxUsers int) {
 		log.Fatalf("Failed to serve: %v", err)
 	}
 }
+
+// runServerWithTUI starts a server in background and then launches TUI for the server owner
+func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byte) {
+	fmt.Printf("Starting server on port %d for room %s\n", port, roomID[:16]+"...")
+	
+	// Start server in background goroutine
+	serverReady := make(chan bool, 1)
+	go func() {
+		// Create TCP listener and gRPC server
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
+		if err != nil {
+			log.Fatalf("Failed to listen on port %d: %v", port, err)
+		}
+		
+		// Create server instance with room ID, port, and max users
+		serverInstance := newServer(roomID, port, maxUsers)
+		
+		// Graceful shutdown handling
+		grpcServer := grpc.NewServer()
+		pb.RegisterKeykammerServiceServer(grpcServer, serverInstance)
+		
+		// Set up signal handling for graceful shutdown
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, os.Interrupt)
+		
+		go func() {
+			<-sigChan
+			fmt.Printf("\nReceived interrupt signal, shutting down server...\n")
+			grpcServer.GracefulStop()
+		}()
+		
+		fmt.Printf("Server ready and listening on :%d\n", port)
+		serverReady <- true
+		
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("Failed to serve: %v", err)
+		}
+	}()
+	
+	// Wait for server to be ready
+	<-serverReady
+	
+	// Give server a moment to fully initialize
+	time.Sleep(500 * time.Millisecond)
+	
+	fmt.Printf("\nServer started successfully! You are now the room owner.\n")
+	fmt.Printf("Other users can join using the same keyfile.\n\n")
+	
+	// Connect to our own server as a client to show TUI
+	serverAddr := fmt.Sprintf("localhost:%d", port)
+	runClient(serverAddr, roomID, encryptionKey)
+}

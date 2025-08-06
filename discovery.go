@@ -129,17 +129,54 @@ func lookupRoom(discoveryURL, roomID string) (*DiscoveryResponse, error) {
 	return &discovery, nil
 }
 
+// getPublicIP attempts to get the public IP address using external services
+func getPublicIP() (string, error) {
+	// List of public IP services to try
+	services := []string{
+		"https://api.ipify.org",
+		"https://ifconfig.me/ip",
+		"https://icanhazip.com",
+	}
+	
+	client := &http.Client{Timeout: 5 * time.Second}
+	
+	for _, service := range services {
+		resp, err := client.Get(service)
+		if err != nil {
+			continue
+		}
+		defer resp.Body.Close()
+		
+		if resp.StatusCode == http.StatusOK {
+			body, err := io.ReadAll(resp.Body)
+			if err != nil {
+				continue
+			}
+			
+			ip := strings.TrimSpace(string(body))
+			if ip != "" {
+				return ip, nil
+			}
+		}
+	}
+	
+	return "", fmt.Errorf("failed to get public IP from any service")
+}
+
 // registerWithDiscovery registers a new room with the discovery server using KeyInfo
 func registerWithDiscovery(keyInfo *KeyInfo, discoveryURL string, port int, maxUsers int) error {
-	// Get local IP address for server registration
-	serverAddr := fmt.Sprintf("127.0.0.1:%d", port)
-	
-	// For internet use, we'd need to get the actual public IP
-	// This is a placeholder for localhost development
-	
-	err := registerRoom(discoveryURL, keyInfo.RoomID, serverAddr, maxUsers)
+	// Get public IP address for internet-wide server registration
+	publicIP, err := getPublicIP()
 	if err != nil {
-		return fmt.Errorf("failed to register with discovery server: %v", err)
+		fmt.Printf("Warning: Could not get public IP (%v), using localhost (local network only)\n", err)
+		publicIP = "127.0.0.1"
+	}
+	
+	serverAddr := fmt.Sprintf("%s:%d", publicIP, port)
+	
+	regErr := registerRoom(discoveryURL, keyInfo.RoomID, serverAddr, maxUsers)
+	if regErr != nil {
+		return fmt.Errorf("failed to register with discovery server: %v", regErr)
 	}
 	
 	fmt.Printf("Room registered with discovery server\n")
@@ -248,7 +285,7 @@ func retryDiscoveryOperation(operation func() error, maxRetries int) error {
 func checkDiscoveryHealth(discoveryURL string) error {
 	client := createDiscoveryClient()
 	
-	resp, err := client.Get(discoveryURL + "/api/health")
+	resp, err := client.Get(discoveryURL + "/health")
 	if err != nil {
 		return fmt.Errorf("health check request failed: %v", err)
 	}
