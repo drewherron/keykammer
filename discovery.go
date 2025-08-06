@@ -342,7 +342,7 @@ func deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL string, maxRetries in
 }
 
 // checkDiscoveryAndFallback tests discovery server availability and logs fallback mode
-func checkDiscoveryAndFallback(discoveryURL string) bool {
+func checkDiscoveryAndFallback(discoveryURL string, port int) bool {
 	fmt.Printf("Testing discovery server availability...\n")
 	
 	if isDiscoveryServerAvailable(discoveryURL) {
@@ -351,10 +351,10 @@ func checkDiscoveryAndFallback(discoveryURL string) bool {
 	}
 	
 	fmt.Printf("Discovery server unavailable: %s\n", discoveryURL)
-	fmt.Printf("Falling back to localhost-only mode\n")
-	fmt.Printf("  Note: Only connections on this computer will work\n")
-	fmt.Printf("  Note: To chat across the internet, ensure discovery server is running\n")
-	fmt.Printf("  Note: You can run your own discovery server with: keykammer -discovery-server-mode\n")
+	fmt.Printf("Falling back to direct connection mode\n")
+	fmt.Printf("  Note: Server will be accessible from any network via IP address\n")
+	fmt.Printf("  Note: Others can connect using: keykammer -connect YOUR_IP:%d -keyfile SAME_FILE\n", port)
+	fmt.Printf("  Note: For automatic room discovery, run: keykammer -discovery-server-mode\n")
 	
 	return false
 }
