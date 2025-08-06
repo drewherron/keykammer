@@ -16,8 +16,6 @@ import (
 
 // runClient handles main client logic for connecting to a server
 func runClient(serverAddr string, roomID string, encryptionKey []byte) {
-	fmt.Printf("Starting client mode\n")
-	
 	// Username prompt with retry logic for taken usernames
 	var username string
 	maxAttempts := 3

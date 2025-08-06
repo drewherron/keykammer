@@ -433,8 +433,19 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 	// Give server a moment to fully initialize
 	time.Sleep(500 * time.Millisecond)
 	
+	// Get public IP for connection info
+	publicIP, err := getPublicIP()
+	if err != nil {
+		publicIP = "YOUR_EXTERNAL_IP" // Fallback placeholder
+	}
+	
 	fmt.Printf("\nServer started successfully! You are now the room owner.\n")
-	fmt.Printf("Other users can join using the same keyfile.\n\n")
+	fmt.Printf("Connection options for others with the same keyfile:\n")
+	if discoveryURL != "" {
+		fmt.Printf("  Discovery (easiest): keykammer -keyfile SAME_FILE\n")
+	}
+	fmt.Printf("  Local network: keykammer -connect localhost:%d -keyfile SAME_FILE\n", port)
+	fmt.Printf("  Internet: keykammer -connect %s:%d -keyfile SAME_FILE\n\n", publicIP, port)
 	
 	// Connect to our own server as a client to show TUI
 	serverAddr := fmt.Sprintf("localhost:%d", port)

@@ -86,7 +86,7 @@ func main() {
 	fmt.Printf("Discovery server: %s\n", *discoveryServer)
 	fmt.Printf("Checking discovery server status...\n")
 	
-	if checkDiscoveryAndFallback(*discoveryServer) {
+	if checkDiscoveryAndFallback(*discoveryServer, *port) {
 		// Discovery server is available - check for existing rooms
 		existingServerAddr, err := lookupRoomInDiscoveryWithRetry(keyInfo.RoomID, *discoveryServer, DefaultMaxRetries)
 		if err != nil {
@@ -105,7 +105,7 @@ func main() {
 			err = registerWithDiscoveryWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, DefaultMaxRetries)
 			if err != nil {
 				fmt.Printf("Failed to register room: %v\n", err)
-				fmt.Printf("Falling back to localhost-only mode\n")
+				fmt.Printf("Continuing in direct connection mode\n")
 			}
 			
 			runServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey, *discoveryServer)
@@ -124,7 +124,7 @@ func main() {
 			err = registerWithDiscoveryWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, DefaultMaxRetries)
 			if err != nil {
 				fmt.Printf("Failed to register room: %v\n", err)
-				fmt.Printf("Starting in localhost-only mode\n")
+				fmt.Printf("Starting in direct connection mode\n")
 			}
 			
 			runServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey, *discoveryServer)
