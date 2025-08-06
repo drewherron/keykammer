@@ -308,14 +308,14 @@ func setupTUIInputHandling(stream pb.KeykammerService_ChatClient, roomID, userna
 			
 			// Handle help command
 			if input == "/help" {
-				addChatMessage("System", "Available commands:")
-				addChatMessage("System", "  /quit - Exit the chat")
-				addChatMessage("System", "  /help - Show this help message")
-				addChatMessage("System", "Keyboard shortcuts:")
-				addChatMessage("System", "  Tab - Cycle between panes")
-				addChatMessage("System", "  Esc - Return to input field")
-				addChatMessage("System", "  Ctrl+C - Exit application")
-				addChatMessage("System", "  Ctrl+D - Exit application")
+				go func() {
+					addChatMessage("System", "Available commands:")
+					addChatMessage("System", "  /quit - Exit the chat")
+					addChatMessage("System", "  /help - Show this help message")
+					addChatMessage("System", "Keyboard shortcuts:")
+					addChatMessage("System", "  Tab - Cycle between panes (arrow keys to scroll)")
+					addChatMessage("System", "  Esc - Return to input field")
+				}()
 				return
 			}
 			
