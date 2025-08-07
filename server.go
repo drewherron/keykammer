@@ -393,6 +393,9 @@ func runServer(roomID string, port int, maxUsers int) {
 func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byte, discoveryURL string) {
 	fmt.Printf("Starting server on port %d for room %s\n", port, roomID[:16]+"...")
 	
+	// Variable to store UPnP mapping for cleanup
+	var upnpMapping *UPnPMapping
+	
 	// Start server in background goroutine
 	serverReady := make(chan bool, 1)
 	go func() {
@@ -400,6 +403,18 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 		if err != nil {
 			log.Fatalf("Failed to listen on port %d: %v", port, err)
+		}
+		
+		// Attempt UPnP port forwarding setup
+		if checkUPnPAvailability() {
+			upnpMapping, err = setupUPnPPortForwarding(port, "Keykammer Chat Server")
+			if err != nil {
+				fmt.Printf("UPnP setup failed: %v\n", err)
+				fmt.Printf("Manual port forwarding may be required for external access\n")
+			}
+		} else {
+			fmt.Printf("UPnP not available on this network\n")
+			fmt.Printf("Manual port forwarding may be required for external access\n")
 		}
 		
 		// Create server instance with room ID, port, and max users
@@ -416,6 +431,14 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		go func() {
 			<-sigChan
 			fmt.Printf("\nReceived interrupt signal, shutting down server...\n")
+			
+			// Clean up UPnP port forwarding
+			if upnpMapping != nil {
+				err := removeUPnPPortForwarding(upnpMapping)
+				if err != nil {
+					fmt.Printf("Failed to remove UPnP mapping: %v\n", err)
+				}
+			}
 			
 			// Use a timeout for graceful shutdown to avoid hanging
 			go func() {
@@ -455,8 +478,17 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 	fmt.Printf("  Local network: keykammer -connect localhost:%d -keyfile SAME_FILE\n", port)
 	fmt.Printf("  Internet: keykammer -connect %s:%d -keyfile SAME_FILE\n\n", publicIP, port)
 	
-	// Set up cleanup function for discovery server deletion
+	// Set up cleanup function for discovery server deletion and UPnP cleanup
 	setGlobalCleanup(func() {
+		// Clean up UPnP port forwarding
+		if upnpMapping != nil {
+			err := removeUPnPPortForwarding(upnpMapping)
+			if err != nil {
+				fmt.Printf("Failed to remove UPnP mapping: %v\n", err)
+			}
+		}
+		
+		// Clean up discovery server registration
 		if discoveryURL != "" {
 			fmt.Printf("Deleting room from discovery server...\n")
 			err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, DefaultMaxRetries)
