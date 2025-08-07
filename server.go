@@ -114,8 +114,6 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 		remainingUsers := s.currentUsers
 		s.mutex.Unlock()
 		
-		fmt.Printf("Client %s disconnected (remaining clients: %d)\n", clientID[:8], remainingUsers)
-		
 		// Notify all remaining clients about user list change
 		s.notifyUserListChange()
 		
@@ -129,7 +127,6 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 	for {
 		msg, err := stream.Recv()
 		if err != nil {
-			fmt.Printf("Client %s stream receive error: %v\n", clientID[:8], err)
 			break
 		}
 		
@@ -158,7 +155,6 @@ func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
 		if stream, ok := clientInfo.Stream.(pb.KeykammerService_ChatServer); ok {
 			err := stream.Send(msg)
 			if err != nil {
-				fmt.Printf("Failed to send message to client %s: %v\n", clientID[:8], err)
 				// Mark client for removal
 				failedClients = append(failedClients, clientID)
 			}
@@ -176,7 +172,6 @@ func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
 			for _, clientID := range failedClients {
 				delete(s.clients, clientID)
 				s.currentUsers--
-				fmt.Printf("Removed failed client %s (remaining clients: %d)\n", clientID[:8], s.currentUsers)
 			}
 			
 			// Notify about user list change if any clients were removed
@@ -189,7 +184,6 @@ func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
 
 // JoinRoom handles room join requests and validates usernames
 func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinResponse, error) {
-	fmt.Printf("Client attempting to join room: %s with username: %s\n", req.RoomId, req.Username)
 	
 	// Room ID validation
 	if req.RoomId != s.roomID {
@@ -230,7 +224,6 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 	if !s.isUsernameAvailable(username) {
 		// Get taken usernames and return them in response
 		takenUsernames := s.getTakenUsernames()
-		fmt.Printf("Username %s is already taken. Taken usernames: %v\n", username, takenUsernames)
 		return &pb.JoinResponse{
 			Success:        false,
 			Message:        fmt.Sprintf("Username '%s' is already taken", username),
@@ -251,7 +244,6 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 	clientCount := len(s.clients)
 	s.mutex.Unlock()
 	
-	fmt.Printf("Client %s (%s) successfully joined room (total clients: %d)\n", clientID[:8], username, clientCount)
 	return &pb.JoinResponse{
 		Success:     true,
 		Message:     fmt.Sprintf("Successfully joined room as %s", username),
@@ -298,9 +290,6 @@ func (s *server) removeClient(clientID string) {
 	// Remove from usernames map
 	delete(s.usernames, username)
 	
-	// Log the disconnect
-	fmt.Printf("Client %s (%s) left the room (remaining clients: %d)\n", 
-		clientID[:8], username, len(s.clients))
 }
 
 // getUserList returns a formatted list of connected users
