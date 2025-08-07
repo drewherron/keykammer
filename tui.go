@@ -23,6 +23,7 @@ var (
 	usersMutex sync.RWMutex // Protect currentUsers access
 	messageCount int // Track number of messages in chat view
 	messageMutex sync.Mutex // Protect message count access
+	tuiMutex sync.Mutex // Serialize all TUI updates to prevent corruption
 )
 
 // setupTUI initializes the TUI layout with chat, user list, and input panes
@@ -147,6 +148,9 @@ func addChatMessage(username, message string) {
 	if chatView == nil {
 		return
 	}
+	
+	tuiMutex.Lock()
+	defer tuiMutex.Unlock()
 	
 	timestamp := time.Now().Format("15:04:05")
 	formattedMsg := fmt.Sprintf("[%s] %s: %s\n", timestamp, username, message)
