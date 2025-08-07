@@ -344,6 +344,6 @@ func setupTUIInputHandling(stream pb.KeykammerService_ChatClient, roomID, userna
 
 // displayMessage formats and displays a chat message with username (legacy function for compatibility)
 func displayMessage(username, message string) {
-	timestamp := time.Now().Format("15:04:05")
-	fmt.Printf("[%s] %s: %s\n", timestamp, username, message)
+	// Legacy function - now redirects to TUI instead of stdout to prevent corruption
+	addChatMessage(username, message)
 }
