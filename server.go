@@ -491,7 +491,7 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 	
 	// Connect to our own server as a client to show TUI
 	serverAddr := fmt.Sprintf("localhost:%d", port)
-	runClient(serverAddr, roomID, encryptionKey)
+	runClientAsServerOwner(serverAddr, roomID, encryptionKey, maxUsers)
 	
 	// When TUI exits (user quit), clean up the room from discovery server
 	fmt.Printf("Server owner quit, cleaning up...\n")
