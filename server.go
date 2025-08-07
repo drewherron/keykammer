@@ -85,26 +85,11 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 		return fmt.Errorf("client info not found for username %s", username)
 	}
 	
-	clientCount := s.currentUsers // Don't increment - user already counted in JoinRoom
+	// User already counted in JoinRoom
 	s.mutex.Unlock()
 	
-	// Notify all clients about user list change
+	// Send user list update to the newly connected client
 	s.notifyUserListChange()
-	
-	// Check if room reaches capacity and trigger auto-delete
-	if s.maxUsers > 0 && clientCount >= s.maxUsers {
-		if s.discoveryURL != "" {
-			go func() {
-				err := deleteRoomFromDiscoveryWithRetry(s.roomID, s.discoveryURL, DefaultMaxRetries)
-				if err != nil {
-					addChatMessage("System", fmt.Sprintf("Room full but failed to update discovery: %v", err))
-				} else {
-					addChatMessage("System", "Room is now full and private (removed from discovery)")
-					updateRoomStatus(false) // Set to CLOSED
-				}
-			}()
-		}
-	}
 	
 	// Add defer function to remove client on disconnect
 	defer func() {
@@ -119,7 +104,16 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 		
 		// Check if room should be deleted from discovery (if currentUsers == 0)
 		if remainingUsers == 0 {
-			fmt.Printf("Room is now empty - would trigger discovery cleanup in full implementation\n")
+			if s.discoveryURL != "" {
+				go func() {
+					err := deleteRoomFromDiscoveryWithRetry(s.roomID, s.discoveryURL, DefaultMaxRetries)
+					if err != nil {
+						fmt.Printf("Failed to clean up empty room from discovery: %v\n", err)
+					} else {
+						fmt.Printf("Empty room cleaned up from discovery server\n")
+					}
+				}()
+			}
 		}
 	}()
 	
@@ -184,6 +178,8 @@ func (s *server) broadcast(msg *pb.ChatMessage, senderID string) {
 
 // JoinRoom handles room join requests and validates usernames
 func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinResponse, error) {
+	var clientCount, maxCount int
+	var discoveryURL, roomID string
 	
 	// Room ID validation
 	if req.RoomId != s.roomID {
@@ -197,7 +193,7 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 	// Check capacity before accepting new connections
 	s.mutex.RLock()
 	currentCount := s.currentUsers
-	maxCount := s.maxUsers
+	maxCount = s.maxUsers
 	s.mutex.RUnlock()
 	
 	if maxCount > 0 && currentCount >= maxCount {
@@ -241,8 +237,37 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 	}
 	// Register username mapping
 	s.usernames[username] = clientID
-	clientCount := len(s.clients)
+	// Increment user count when user actually joins
+	s.currentUsers++
+	clientCount = s.currentUsers
+	maxCount = s.maxUsers
+	discoveryURL = s.discoveryURL
+	roomID = s.roomID
 	s.mutex.Unlock()
+	
+	// Notify all clients about user list change
+	s.notifyUserListChange()
+	
+	// Check if room reaches capacity and trigger auto-delete
+	if maxCount > 0 && clientCount >= maxCount {
+		if discoveryURL != "" {
+			go func() {
+				err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, DefaultMaxRetries)
+				if err != nil {
+					fmt.Printf("Room full but failed to delete from discovery: %v\n", err)
+				} else {
+					// Send system message to all clients about room being closed
+					systemMsg := &pb.ChatMessage{
+						RoomId:           roomID,
+						Username:         "System",
+						EncryptedContent: []byte(fmt.Sprintf("Room at capacity (%d/%d) - no longer accepting new connections", clientCount, maxCount)),
+						Timestamp:        time.Now().UnixNano(),
+					}
+					s.broadcast(systemMsg, "")
+				}
+			}()
+		}
+	}
 	
 	return &pb.JoinResponse{
 		Success:     true,

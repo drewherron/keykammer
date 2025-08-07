@@ -239,17 +239,14 @@ func deleteRoomFromDiscovery(roomID, discoveryURL string) error {
 	}
 	
 	setDiscoveryStatus(DiscoveryRoomDeleted)
-	fmt.Printf("Room deleted from discovery server\n")
-	fmt.Printf("  Room ID: %s\n", roomID[:16]+"...")
-	fmt.Printf("  Status: Room is now private and invisible\n")
-	
+	// Room deleted successfully - no output to avoid TUI corruption
 	return nil
 }
 
 // triggerAutoDelete removes room from discovery when capacity is reached
 func triggerAutoDelete(roomID, discoveryURL string, currentUsers, maxUsers int) error {
 	if maxUsers > 0 && currentUsers >= maxUsers {
-		fmt.Printf("Room capacity reached (%d/%d) - triggering auto-delete\n", currentUsers, maxUsers)
+		// Room at capacity - delete from discovery (no output to avoid TUI corruption)
 		return deleteRoomFromDiscovery(roomID, discoveryURL)
 	}
 	return nil
