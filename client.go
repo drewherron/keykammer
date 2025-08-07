@@ -72,6 +72,125 @@ func runClient(serverAddr string, roomID string, encryptionKey []byte) {
 	fmt.Printf("Failed to connect after %d attempts. Check server status and try again.\n", maxAttempts)
 }
 
+// runClientAsServerOwner is like runClient but for server owners who know the maxUsers
+func runClientAsServerOwner(serverAddr string, roomID string, encryptionKey []byte, maxUsers int) {
+	// Username prompt with retry logic for taken usernames
+	var username string
+	maxAttempts := 3
+	
+	for attempt := 1; attempt <= maxAttempts; attempt++ {
+		// Get and validate username format
+		for {
+			username = promptUsername()
+			if username == "" {
+				// Ctrl+D pressed - continue prompting without penalty
+				continue
+			}
+			if err := validateUsername(username); err != nil {
+				fmt.Printf("Invalid username: %v\n", err)
+				continue
+			}
+			break
+		}
+		
+		fmt.Printf("Connecting as user: %s (attempt %d/%d)\n", username, attempt, maxAttempts)
+		
+		// Try to connect with username and handle retries
+		success := tryConnectAsClient(serverAddr, roomID, username)
+		if success {
+			fmt.Printf("Client connected successfully to room as %s\n", username)
+			
+			// Establish chat stream and start chat (with maxUsers for server owner)
+			err := startChatSessionAsServerOwner(serverAddr, roomID, username, encryptionKey, maxUsers)
+			if err != nil {
+				// Provide specific error messages for chat session failures
+				if strings.Contains(err.Error(), "connection refused") {
+					fmt.Printf("Chat server disconnected: %v\n", err)
+					fmt.Printf("  Tip: The server may have shut down. Try connecting again.\n")
+				} else if strings.Contains(err.Error(), "stream") {
+					fmt.Printf("Chat stream error: %v\n", err)
+					fmt.Printf("  Tip: Connection interrupted. Try reconnecting.\n")
+				} else {
+					fmt.Printf("Chat session error: %v\n", err)
+				}
+				
+				if attempt < maxAttempts {
+					fmt.Printf("Retrying with different username...\n")
+					continue
+				}
+			} else {
+				return // Chat session completed normally
+			}
+		} else if attempt < maxAttempts {
+			fmt.Printf("Username may be taken or connection failed. Try a different username.\n")
+		}
+	}
+	
+	fmt.Printf("Failed to connect after %d attempts. Check server status and try again.\n", maxAttempts)
+}
+
+// startChatSessionAsServerOwner is like startChatSession but for server owners with maxUsers
+func startChatSessionAsServerOwner(serverAddr, roomID, username string, encryptionKey []byte, maxUsers int) error {
+	fmt.Printf("Establishing chat stream to %s...\n", serverAddr)
+	
+	// Establish the gRPC stream
+	stream, conn, err := establishChatStream(serverAddr)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	
+	// Send initial message to announce presence and start receiving
+	initialMsg := &pb.ChatMessage{
+		RoomId:           roomID,
+		Username:         username,
+		EncryptedContent: []byte(""), // Empty for initial connection
+		Timestamp:        time.Now().UnixNano(),
+	}
+	
+	err = stream.Send(initialMsg)
+	if err != nil {
+		return fmt.Errorf("failed to send initial message: %v", err)
+	}
+	
+	// Set up TUI interface (welcome messages are added during setup)
+	// Server owner knows maxUsers, so pass it along
+	err = setupTUI(roomID, username, maxUsers)
+	if err != nil {
+		return fmt.Errorf("failed to setup TUI: %v", err)
+	}
+	
+	// User list is initialized during TUI setup, will be updated by server notifications
+	
+	// Start message receive handler in goroutine
+	done := make(chan bool)
+	go handleIncomingMessagesTUI(stream, encryptionKey, done)
+	
+	// Set up input handling for TUI
+	setupTUIInputHandling(stream, roomID, username, encryptionKey, done)
+	
+	// Set up signal handling for Ctrl+C
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, os.Interrupt)
+	go func() {
+		<-sigChan
+		if globalCleanupFunc != nil {
+			fmt.Printf("\nInterrupted. Cleaning up...\n")
+			globalCleanupFunc()
+		}
+		app.Stop()
+		close(done)
+	}()
+	
+	// Run the TUI application (this blocks until app.Stop() is called)
+	err = app.Run()
+	if err != nil {
+		return fmt.Errorf("TUI error: %v", err)
+	}
+	
+	return nil
+}
+
 // establishChatStream creates a bidirectional gRPC stream for chat
 func establishChatStream(serverAddr string) (pb.KeykammerService_ChatClient, *grpc.ClientConn, error) {
 	fmt.Printf("Connecting to chat server at %s...\n", serverAddr)
@@ -125,7 +244,8 @@ func startChatSession(serverAddr, roomID, username string, encryptionKey []byte)
 	}
 	
 	// Set up TUI interface (welcome messages are added during setup)
-	err = setupTUI(roomID, username)
+	// For clients, we don't know maxUsers, so default to 0 (unlimited display)
+	err = setupTUI(roomID, username, 0)
 	if err != nil {
 		return fmt.Errorf("failed to setup TUI: %v", err)
 	}

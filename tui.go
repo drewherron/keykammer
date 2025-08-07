@@ -24,10 +24,12 @@ var (
 	messageCount int // Track number of messages in chat view
 	messageMutex sync.Mutex // Protect message count access
 	tuiMutex sync.Mutex // Serialize all TUI updates to prevent corruption
+	roomMaxUsers int // Maximum users allowed in room (0 = unlimited)
 )
 
 // setupTUI initializes the TUI layout with chat, user list, and input panes
-func setupTUI(roomID, username string) error {
+func setupTUI(roomID, username string, maxUsers int) error {
+	roomMaxUsers = maxUsers
 	app = tview.NewApplication()
 	
 	// Set application to use terminal default colors
@@ -119,7 +121,11 @@ func setupTUI(roomID, username string) error {
 	
 	// Initialize user list directly with current user
 	userList.AddItem(username, "", 0, nil)
-	userList.SetTitle("Users (1)")
+	if roomMaxUsers > 0 {
+		userList.SetTitle(fmt.Sprintf("Users (1/%d)", roomMaxUsers))
+	} else {
+		userList.SetTitle("Users (1)")
+	}
 	usersMutex.Lock()
 	currentUsers = []string{username}
 	usersMutex.Unlock()
@@ -191,7 +197,11 @@ func updateUserList(users []string) {
 		for _, user := range users {
 			userList.AddItem(user, "", 0, nil)
 		}
-		userList.SetTitle(fmt.Sprintf("Users (%d)", len(users)))
+		if roomMaxUsers > 0 {
+			userList.SetTitle(fmt.Sprintf("Users (%d/%d)", len(users), roomMaxUsers))
+		} else {
+			userList.SetTitle(fmt.Sprintf("Users (%d)", len(users)))
+		}
 	})
 }
 
