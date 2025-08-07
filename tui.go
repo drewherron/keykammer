@@ -46,7 +46,7 @@ func setupTUI(roomID, username string, maxUsers int) error {
 	
 	// Create chat view (main pane)
 	chatView = tview.NewTextView()
-	chatView.SetBorder(true).SetTitle("Keykammer - OPEN")
+	chatView.SetBorder(true).SetTitle("Keykammer - LISTED")  // Default to LISTED, will be updated by server
 	chatView.SetScrollable(true)
 	chatView.SetWrap(true)
 	chatView.SetDynamicColors(false)
@@ -133,15 +133,15 @@ func setupTUI(roomID, username string, maxUsers int) error {
 	return nil
 }
 
-// updateRoomStatus updates the chat title to show OPEN/CLOSED status
-func updateRoomStatus(isOpen bool) {
+// updateRoomStatus updates the chat title to show LISTED/OPEN/CLOSED status
+func updateRoomStatus(status string) {
 	if chatView == nil {
 		return
 	}
 	
-	status := "CLOSED"
-	if isOpen {
-		status = "OPEN"
+	// Validate status
+	if status != "LISTED" && status != "OPEN" && status != "CLOSED" {
+		status = "OPEN" // Default fallback
 	}
 	
 	app.QueueUpdateDraw(func() {
@@ -267,6 +267,13 @@ func displayChatMessageTUI(msg *pb.ChatMessage, key []byte) {
 				updateUserList(users)
 			}
 			return // Don't display user list updates as chat messages
+		}
+		
+		// Check if this is a room status update message
+		if strings.HasPrefix(content, "ROOMSTATUS:") {
+			statusData := strings.TrimPrefix(content, "ROOMSTATUS:")
+			updateRoomStatus(statusData)
+			return // Don't display room status updates as chat messages
 		}
 		
 		addChatMessage(msg.Username, content)

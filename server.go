@@ -31,19 +31,21 @@ type server struct {
 	clients      map[string]*ClientInfo
 	usernames    map[string]string // username -> clientID
 	discoveryURL string            // URL for discovery server (empty if none)
+	isListedInDiscovery bool      // Whether room is currently listed in discovery server
 	mutex        sync.RWMutex
 }
 
 // newServer creates a new server instance
 func newServer(roomID string, port int, maxUsers int, discoveryURL string) *server {
 	return &server{
-		roomID:       roomID,
-		port:         port,
-		maxUsers:     maxUsers,
-		currentUsers: 0,
-		clients:      make(map[string]*ClientInfo),
-		usernames:    make(map[string]string),
-		discoveryURL: discoveryURL,
+		roomID:              roomID,
+		port:                port,
+		maxUsers:            maxUsers,
+		currentUsers:        0,
+		clients:             make(map[string]*ClientInfo),
+		usernames:           make(map[string]string),
+		discoveryURL:        discoveryURL,
+		isListedInDiscovery: discoveryURL != "", // Initially listed if using discovery
 	}
 }
 
@@ -91,16 +93,26 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 	// Send user list update to the newly connected client
 	s.notifyUserListChange()
 	
+	// Send current room status to the newly connected client
+	s.broadcastRoomStatusUpdate()
+	
 	// Add defer function to remove client on disconnect
 	defer func() {
 		s.mutex.Lock()
 		delete(s.clients, clientID)
 		s.currentUsers--
 		remainingUsers := s.currentUsers
+		wasAtCapacity := s.maxUsers > 0 && s.currentUsers+1 >= s.maxUsers // Was at capacity before this user left
 		s.mutex.Unlock()
 		
 		// Notify all remaining clients about user list change
 		s.notifyUserListChange()
+		
+		// If room was at capacity but now isn't, update status
+		if wasAtCapacity && remainingUsers > 0 {
+			// Room no longer at capacity - broadcast status change
+			s.broadcastRoomStatusUpdate()
+		}
 		
 		// Check if room should be deleted from discovery (if currentUsers == 0)
 		if remainingUsers == 0 {
@@ -250,6 +262,14 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 	
 	// Check if room reaches capacity and trigger auto-delete
 	if maxCount > 0 && clientCount >= maxCount {
+		// Update discovery status and broadcast status change
+		s.mutex.Lock()
+		s.isListedInDiscovery = false
+		s.mutex.Unlock()
+		
+		// Broadcast room status update to all clients
+		s.broadcastRoomStatusUpdate()
+		
 		if discoveryURL != "" {
 			go func() {
 				err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, DefaultMaxRetries)
@@ -369,6 +389,41 @@ func (s *server) getUsernameList() []string {
 	}
 	
 	return usernames
+}
+
+// getRoomStatus determines the current room status based on capacity and discovery state
+func (s *server) getRoomStatus() string {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	
+	// Check if room is at capacity
+	isAtCapacity := s.maxUsers > 0 && s.currentUsers >= s.maxUsers
+	
+	if isAtCapacity {
+		return "CLOSED"
+	} else if s.isListedInDiscovery && s.discoveryURL != "" {
+		return "LISTED"
+	} else {
+		return "OPEN"
+	}
+}
+
+// broadcastRoomStatusUpdate sends room status update to all clients
+func (s *server) broadcastRoomStatusUpdate() {
+	status := s.getRoomStatus()
+	
+	// Create a system message with room status info
+	statusMsg := fmt.Sprintf("ROOMSTATUS:%s", status)
+	
+	// Broadcast to all clients as a system message
+	systemMsg := &pb.ChatMessage{
+		RoomId:           s.roomID,
+		Username:         "System",
+		EncryptedContent: []byte(statusMsg), // Store as plain text for system messages
+		Timestamp:        time.Now().UnixNano(),
+	}
+	
+	s.broadcast(systemMsg, "")
 }
 
 // runServer starts a gRPC server for the specified room and port
