@@ -179,11 +179,7 @@ func registerWithDiscovery(keyInfo *KeyInfo, discoveryURL string, port int, maxU
 		return fmt.Errorf("failed to register with discovery server: %v", regErr)
 	}
 	
-	fmt.Printf("Room registered with discovery server\n")
-	fmt.Printf("  Room ID: %s\n", keyInfo.RoomID[:16]+"...")
-	fmt.Printf("  Server: %s\n", serverAddr)
-	fmt.Printf("  Max users: %d\n", maxUsers)
-	
+	// Room registered silently for maximum privacy
 	return nil
 }
 
@@ -195,20 +191,11 @@ func lookupRoomInDiscovery(roomID, discoveryURL string) (string, error) {
 	}
 	
 	if discovery == nil {
-		// Room not found
-		fmt.Printf("Room not found in discovery server\n")
+		// Room not found - silent for privacy
 		return "", nil
 	}
 	
-	fmt.Printf("Found existing room in discovery server\n")
-	fmt.Printf("  Room ID: %s\n", roomID[:16]+"...")
-	fmt.Printf("  Server: %s\n", discovery.ServerAddress)
-	if discovery.MaxUsers > 0 {
-		fmt.Printf("  Capacity: %d/%d users (%d slots remaining)\n", 
-			discovery.CurrentUsers, discovery.MaxUsers, discovery.SlotsRemaining)
-	} else {
-		fmt.Printf("  Capacity: %d users (unlimited)\n", discovery.CurrentUsers)
-	}
+	// Room found - silent for privacy
 	
 	// Validate room capacity using the new validation function
 	canJoin, err := checkRoomJoinability(roomID, discovery.CurrentUsers, discovery.MaxUsers)
@@ -259,22 +246,19 @@ func retryDiscoveryOperation(operation func() error, maxRetries int) error {
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		err := operation()
 		if err == nil {
-			if attempt > 0 {
-				fmt.Printf("Discovery operation succeeded after %d retries\n", attempt)
-			}
+			// Operation succeeded - silent for privacy
 			return nil
 		}
 		
 		lastErr = err
 		if attempt < maxRetries {
 			delay := time.Duration(DiscoveryRetryDelay * (1 << attempt)) * time.Second
-			fmt.Printf("Discovery operation failed (attempt %d/%d): %v\n", attempt+1, maxRetries+1, err)
-			fmt.Printf("  Retrying in %v...\n", delay)
+			// Retry silently for privacy
 			time.Sleep(delay)
 		}
 	}
 	
-	fmt.Printf("✗ Discovery operation failed after %d retries: %v\n", maxRetries+1, lastErr)
+	// All retries failed - silent for privacy
 	return fmt.Errorf("operation failed after %d retries: %v", maxRetries+1, lastErr)
 }
 
@@ -378,17 +362,11 @@ func validateRoomCapacity(current, max int) error {
 func checkRoomJoinability(roomID string, current, max int) (bool, error) {
 	err := validateRoomCapacity(current, max)
 	if err != nil {
-		fmt.Printf("Cannot join room %s: %v\n", roomID[:16]+"...", err)
+		// Room validation failed - silent for privacy
 		return false, err
 	}
 	
-	if max > 0 {
-		remaining := max - current
-		fmt.Printf("Room has space: %d/%d users (%d slots remaining)\n", current, max, remaining)
-	} else {
-		fmt.Printf("Room has unlimited capacity (current: %d users)\n", current)
-	}
-	
+	// Room has space - silent for privacy
 	return true, nil
 }
 
@@ -446,9 +424,7 @@ func handleRooms(w http.ResponseWriter, r *http.Request) {
 	discoveryRooms[registration.RoomID] = &registration
 	discoveryMutex.Unlock()
 	
-	fmt.Printf("Registered room %s at %s (%d/%d users)\n", 
-		registration.RoomID[:16]+"...", registration.ServerAddress, 
-		registration.CurrentUsers, registration.MaxUsers)
+	// Room registration processed silently for maximum privacy
 	
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -497,8 +473,7 @@ func handleRoomLookup(w http.ResponseWriter, roomID string) {
 		response.SlotsRemaining = 0
 	}
 	
-	fmt.Printf("Room lookup: %s -> %s (%d/%d users)\n", 
-		roomID[:16]+"...", room.ServerAddress, room.CurrentUsers, room.MaxUsers)
+	// Room lookup processed silently for maximum privacy
 	
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(response)
@@ -518,7 +493,7 @@ func handleRoomDelete(w http.ResponseWriter, roomID string) {
 		return
 	}
 	
-	fmt.Printf("Deleted room %s from discovery\n", roomID[:16]+"...")
+	// Room deletion processed silently for maximum privacy
 	
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
