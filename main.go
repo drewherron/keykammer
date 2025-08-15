@@ -16,7 +16,14 @@ func main() {
 	discoveryServer := flag.String("discovery-server", DefaultDiscoveryServer, "Discovery server URL")
 	discoveryServerMode := flag.Bool("discovery-server-mode", false, "Run as HTTP discovery server")
 	connectDirect := flag.String("connect", "", "Connect directly to server at IP:PORT (bypasses discovery)")
+	version := flag.Bool("version", false, "Show version information")
 	flag.Parse()
+	
+	// Handle version flag
+	if *version {
+		printVersion()
+		return
+	}
 	
 	// Handle discovery server mode
 	if *discoveryServerMode {
