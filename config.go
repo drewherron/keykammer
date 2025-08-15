@@ -1,7 +1,6 @@
 package main
 
 const (
-	MaxKeyFileSize = 20 * 1024 * 1024 // 20MB
 	// KeyDerivationSalt must remain constant for compatibility across all clients
 	KeyDerivationSalt = "keykammer-v1-salt"
 	// DefaultPort is the default port for keykammer servers (53952 spells "KEYKA")
