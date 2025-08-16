@@ -25,19 +25,19 @@ func readFile(path string) ([]byte, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot access file: %v", err)
 	}
-	
+
 	// Note: No file size limit - any file can be used as a keyfile
 	// Large files will take longer to process but provide the same security
 	if size > 5*1024*1024*1024 { // 5GB warning threshold
 		fmt.Printf("Warning: A large keyfile (%d bytes) will take longer to process...\n", size)
 	}
-	
+
 	// Read file content
 	content, err := os.ReadFile(path)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read file: %v", err)
 	}
-	
+
 	return content, nil
 }
 

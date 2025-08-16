@@ -17,7 +17,7 @@ func sendMessage(stream pb.KeykammerService_ChatClient, roomID, username, conten
 	if err != nil {
 		return fmt.Errorf("failed to create encrypted message: %v", err)
 	}
-	
+
 	return stream.Send(msg)
 }
 
@@ -31,7 +31,7 @@ func handleIncomingMessages(stream pb.KeykammerService_ChatClient, key []byte, d
 			// Create a channel to receive the message with timeout
 			msgChan := make(chan *pb.ChatMessage, 1)
 			errChan := make(chan error, 1)
-			
+
 			go func() {
 				msg, err := stream.Recv()
 				if err != nil {
@@ -40,7 +40,7 @@ func handleIncomingMessages(stream pb.KeykammerService_ChatClient, key []byte, d
 					msgChan <- msg
 				}
 			}()
-			
+
 			// Wait for message or timeout
 			select {
 			case <-done:
@@ -73,7 +73,7 @@ func handleIncomingMessages(stream pb.KeykammerService_ChatClient, key []byte, d
 // displayChatMessage formats and displays a decrypted chat message (legacy console version)
 func displayChatMessage(msg *pb.ChatMessage, key []byte) {
 	timestamp := time.Unix(0, msg.Timestamp).Format("15:04:05")
-	
+
 	// Decrypt the message content
 	var content string
 	if len(msg.EncryptedContent) > 0 {
@@ -86,27 +86,27 @@ func displayChatMessage(msg *pb.ChatMessage, key []byte) {
 	} else {
 		content = "[empty message]"
 	}
-	
+
 	fmt.Printf("[%s] %s: %s\n", timestamp, msg.Username, content)
 }
 
 // handleUserInput processes user input and sends encrypted messages (legacy console version)
 func handleUserInput(stream pb.KeykammerService_ChatClient, roomID, username string, key []byte, done chan bool) error {
 	scanner := bufio.NewScanner(os.Stdin)
-	
+
 	for {
 		fmt.Print("> ")
 		if !scanner.Scan() {
 			break
 		}
-		
+
 		input := strings.TrimSpace(scanner.Text())
-		
+
 		// Handle empty input
 		if input == "" {
 			continue
 		}
-		
+
 		// Handle quit command
 		if input == "/quit" {
 			fmt.Printf("Exiting chat...\n")
@@ -115,7 +115,7 @@ func handleUserInput(stream pb.KeykammerService_ChatClient, roomID, username str
 			time.Sleep(100 * time.Millisecond)
 			return nil
 		}
-		
+
 		// Send the encrypted message
 		err := sendMessage(stream, roomID, username, input, key)
 		if err != nil {
@@ -123,6 +123,6 @@ func handleUserInput(stream pb.KeykammerService_ChatClient, roomID, username str
 			continue
 		}
 	}
-	
+
 	return nil
 }
