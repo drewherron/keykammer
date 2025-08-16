@@ -10,9 +10,9 @@ import (
 func main() {
 	// Command line argument parsing
 	keyfile := flag.String("keyfile", "", "Path to key file (required)")
-	port := flag.Int("port", DefaultPort, "Port to use (default: 76667)")
+	port := flag.Int("port", DefaultPort, "Port to use for chat server")
 	password := flag.String("password", "", "Optional password for key derivation (empty uses keyfile only)")
-	size := flag.Int("size", 2, "Maximum users per room (default: 2 for maximum privacy)")
+	size := flag.Int("size", 2, "Maximum users per room (for maximum privacy)")
 	discoveryServer := flag.String("discovery-server", DefaultDiscoveryServer, "Discovery server URL")
 	discoveryServerMode := flag.Bool("discovery-server-mode", false, "Run as HTTP discovery server")
 	connectDirect := flag.String("connect", "", "Connect directly to server at IP:PORT (bypasses discovery)")
@@ -47,7 +47,7 @@ func main() {
 	if *connectDirect != "" {
 		if !strings.Contains(*connectDirect, ":") {
 			fmt.Printf("Error: -connect must be in IP:PORT format (got: %s)\n", *connectDirect)
-			fmt.Printf("Example: -connect 192.168.1.100:76667\n")
+			fmt.Printf("Example: -connect 192.168.1.100:53952\n")
 			os.Exit(1)
 		}
 	}
