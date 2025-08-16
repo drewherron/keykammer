@@ -19,7 +19,7 @@ func runClient(serverAddr string, roomID string, encryptionKey []byte) {
 	// Username prompt with retry logic for taken usernames
 	var username string
 	maxAttempts := 3
-	
+
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		// Get and validate username format
 		for {
@@ -34,15 +34,15 @@ func runClient(serverAddr string, roomID string, encryptionKey []byte) {
 			}
 			break
 		}
-		
+
 		fmt.Printf("Connecting as user: %s (attempt %d/%d)\n", username, attempt, maxAttempts)
-		
+
 		// Try to connect with username and handle retries
 		success := tryConnectAsClient(serverAddr, roomID, username)
-		
+
 		if success {
 			fmt.Printf("Client connected successfully to room as %s\n", username)
-			
+
 			// Establish chat stream and start chat
 			err := startChatSession(serverAddr, roomID, username, encryptionKey)
 			if err != nil {
@@ -56,7 +56,7 @@ func runClient(serverAddr string, roomID string, encryptionKey []byte) {
 				} else {
 					fmt.Printf("Chat session failed: %v\n", err)
 				}
-				
+
 				if attempt < maxAttempts {
 					fmt.Printf("Retrying with different username...\n")
 					continue
@@ -68,7 +68,7 @@ func runClient(serverAddr string, roomID string, encryptionKey []byte) {
 			fmt.Printf("Username may be taken or connection failed. Try a different username.\n")
 		}
 	}
-	
+
 	fmt.Printf("Failed to connect after %d attempts. Check server status and try again.\n", maxAttempts)
 }
 
@@ -77,7 +77,7 @@ func runClientAsServerOwner(serverAddr string, roomID string, encryptionKey []by
 	// Username prompt with retry logic for taken usernames
 	var username string
 	maxAttempts := 3
-	
+
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		// Get and validate username format
 		for {
@@ -92,14 +92,14 @@ func runClientAsServerOwner(serverAddr string, roomID string, encryptionKey []by
 			}
 			break
 		}
-		
+
 		fmt.Printf("Connecting as user: %s (attempt %d/%d)\n", username, attempt, maxAttempts)
-		
+
 		// Try to connect with username and handle retries
 		success := tryConnectAsClient(serverAddr, roomID, username)
 		if success {
 			fmt.Printf("Client connected successfully to room as %s\n", username)
-			
+
 			// Establish chat stream and start chat (with maxUsers for server owner)
 			err := startChatSessionAsServerOwner(serverAddr, roomID, username, encryptionKey, maxUsers)
 			if err != nil {
@@ -113,7 +113,7 @@ func runClientAsServerOwner(serverAddr string, roomID string, encryptionKey []by
 				} else {
 					fmt.Printf("Chat session error: %v\n", err)
 				}
-				
+
 				if attempt < maxAttempts {
 					fmt.Printf("Retrying with different username...\n")
 					continue
@@ -125,21 +125,21 @@ func runClientAsServerOwner(serverAddr string, roomID string, encryptionKey []by
 			fmt.Printf("Username may be taken or connection failed. Try a different username.\n")
 		}
 	}
-	
+
 	fmt.Printf("Failed to connect after %d attempts. Check server status and try again.\n", maxAttempts)
 }
 
 // startChatSessionAsServerOwner is like startChatSession but for server owners with maxUsers
 func startChatSessionAsServerOwner(serverAddr, roomID, username string, encryptionKey []byte, maxUsers int) error {
 	fmt.Printf("Establishing chat stream to %s...\n", serverAddr)
-	
+
 	// Establish the gRPC stream
 	stream, conn, err := establishChatStream(serverAddr)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	
+
 	// Send initial message to announce presence and start receiving
 	initialMsg := &pb.ChatMessage{
 		RoomId:           roomID,
@@ -147,28 +147,28 @@ func startChatSessionAsServerOwner(serverAddr, roomID, username string, encrypti
 		EncryptedContent: []byte(""), // Empty for initial connection
 		Timestamp:        time.Now().UnixNano(),
 	}
-	
+
 	err = stream.Send(initialMsg)
 	if err != nil {
 		return fmt.Errorf("failed to send initial message: %v", err)
 	}
-	
+
 	// Set up TUI interface (welcome messages are added during setup)
 	// Server owner knows maxUsers, so pass it along
 	err = setupTUI(roomID, username, maxUsers)
 	if err != nil {
 		return fmt.Errorf("failed to setup TUI: %v", err)
 	}
-	
+
 	// User list is initialized during TUI setup, will be updated by server notifications
-	
+
 	// Start message receive handler in goroutine
 	done := make(chan bool)
 	go handleIncomingMessagesTUI(stream, encryptionKey, done)
-	
+
 	// Set up input handling for TUI
 	setupTUIInputHandling(stream, roomID, username, encryptionKey, done)
-	
+
 	// Set up signal handling for Ctrl+C
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
@@ -181,31 +181,31 @@ func startChatSessionAsServerOwner(serverAddr, roomID, username string, encrypti
 		app.Stop()
 		close(done)
 	}()
-	
+
 	// Run the TUI application (this blocks until app.Stop() is called)
 	err = app.Run()
 	if err != nil {
 		return fmt.Errorf("TUI error: %v", err)
 	}
-	
+
 	return nil
 }
 
 // establishChatStream creates a bidirectional gRPC stream for chat
 func establishChatStream(serverAddr string) (pb.KeykammerService_ChatClient, *grpc.ClientConn, error) {
 	fmt.Printf("Connecting to chat server at %s...\n", serverAddr)
-	
+
 	// Create connection to server with retry logic
 	conn, err := connectToServerWithRetry(serverAddr, 3) // 3 retries = 4 total attempts
 	if err != nil {
 		return nil, nil, fmt.Errorf("failed to connect to server: %v", err)
 	}
-	
+
 	fmt.Printf("Connection established, starting chat stream...\n")
-	
+
 	// Create gRPC client
 	client := pb.NewKeykammerServiceClient(conn)
-	
+
 	// Start chat stream
 	ctx := context.Background()
 	stream, err := client.Chat(ctx)
@@ -213,23 +213,23 @@ func establishChatStream(serverAddr string) (pb.KeykammerService_ChatClient, *gr
 		conn.Close()
 		return nil, nil, fmt.Errorf("failed to start chat stream: %v", err)
 	}
-	
+
 	return stream, conn, nil
 }
 
 // startChatSession handles the full chat session lifecycle
 func startChatSession(serverAddr, roomID, username string, encryptionKey []byte) error {
 	fmt.Printf("Establishing chat stream to %s...\n", serverAddr)
-	
+
 	// Establish the gRPC stream
 	stream, conn, err := establishChatStream(serverAddr)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-	
+
 	fmt.Printf("Chat stream established, sending initial message...\n")
-	
+
 	// Send initial message with room ID and username for validation
 	initialMsg := &pb.ChatMessage{
 		RoomId:           roomID,
@@ -237,28 +237,28 @@ func startChatSession(serverAddr, roomID, username string, encryptionKey []byte)
 		EncryptedContent: []byte{}, // Empty content for initial validation message
 		Timestamp:        time.Now().UnixNano(),
 	}
-	
+
 	err = stream.Send(initialMsg)
 	if err != nil {
 		return fmt.Errorf("failed to send initial message: %v", err)
 	}
-	
+
 	// Set up TUI interface (welcome messages are added during setup)
 	// For clients, we don't know maxUsers, so default to 0 (unlimited display)
 	err = setupTUI(roomID, username, 0)
 	if err != nil {
 		return fmt.Errorf("failed to setup TUI: %v", err)
 	}
-	
+
 	// User list is initialized during TUI setup, will be updated by server notifications
-	
+
 	// Start message receive handler in goroutine
 	done := make(chan bool)
 	go handleIncomingMessagesTUI(stream, encryptionKey, done)
-	
+
 	// Set up input handling for TUI
 	setupTUIInputHandling(stream, roomID, username, encryptionKey, done)
-	
+
 	// Set up signal handling for Ctrl+C
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
@@ -271,13 +271,13 @@ func startChatSession(serverAddr, roomID, username string, encryptionKey []byte)
 		app.Stop()
 		close(done)
 	}()
-	
+
 	// Run the TUI application (this blocks until app.Stop() is called)
 	err = app.Run()
 	if err != nil {
 		return fmt.Errorf("TUI error: %v", err)
 	}
-	
+
 	return nil
 }
 
@@ -286,20 +286,20 @@ func connectToServer(addr string) (*grpc.ClientConn, error) {
 	// Add timeout for connection attempt
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	
+
 	// Use insecure connection for now (will add TLS later)
 	conn, err := grpc.DialContext(ctx, addr, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to server at %s: %v", addr, err)
 	}
-	
+
 	return conn, nil
 }
 
 // connectToServerWithRetry attempts to connect with retry logic
 func connectToServerWithRetry(addr string, maxRetries int) (*grpc.ClientConn, error) {
 	var lastErr error
-	
+
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		conn, err := connectToServer(addr)
 		if err == nil {
@@ -308,7 +308,7 @@ func connectToServerWithRetry(addr string, maxRetries int) (*grpc.ClientConn, er
 			}
 			return conn, nil
 		}
-		
+
 		lastErr = err
 		if attempt < maxRetries {
 			delay := time.Duration(1<<attempt) * time.Second // Exponential backoff: 1s, 2s, 4s, 8s...
@@ -317,7 +317,7 @@ func connectToServerWithRetry(addr string, maxRetries int) (*grpc.ClientConn, er
 			time.Sleep(delay)
 		}
 	}
-	
+
 	// Provide specific error message based on failure type
 	if strings.Contains(lastErr.Error(), "connection refused") {
 		return nil, fmt.Errorf("connection failed after %d attempts: server refused connection to %s\nTip: Make sure the server is running and check the port number", maxRetries+1, addr)
@@ -335,7 +335,7 @@ func tryConnectAsClient(addr string, roomID string, username string) bool {
 	// Add client logging
 	fmt.Printf("Attempting to join room as user %s\n", username)
 	fmt.Printf("Server address: %s\n", addr)
-	
+
 	// Create connection to server with retry logic
 	conn, err := connectToServerWithRetry(addr, 2) // 2 retries = 3 total attempts (less for join attempts)
 	if err != nil {
@@ -343,27 +343,27 @@ func tryConnectAsClient(addr string, roomID string, username string) bool {
 		return false
 	}
 	defer conn.Close()
-	
+
 	// Create gRPC client
 	client := pb.NewKeykammerServiceClient(conn)
-	
+
 	// Call JoinRoom RPC
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	
+
 	// Send username in join request using proper JoinRequest
 	joinReq := &pb.JoinRequest{
 		RoomId:   roomID,
 		Username: username,
 		Version:  1, // Protocol version
 	}
-	
+
 	resp, err := client.JoinRoom(ctx, joinReq)
 	if err != nil {
 		fmt.Printf("Failed to join room: %v\n", err)
 		return false
 	}
-	
+
 	if resp.Success {
 		fmt.Printf("Successfully joined room %s\n", formatRoomID(roomID))
 		if resp.ClientCount > 0 {
@@ -405,10 +405,10 @@ func promptUsername() string {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, os.Interrupt)
 	defer signal.Stop(sigChan)
-	
+
 	// Channel for username input
 	usernameChan := make(chan string, 1)
-	
+
 	// Start username input in goroutine
 	go func() {
 		fmt.Print("Enter username: ")
@@ -427,7 +427,7 @@ func promptUsername() string {
 			usernameChan <- strings.TrimSpace(username)
 		}
 	}()
-	
+
 	// Wait for either username input or Ctrl+C
 	select {
 	case username := <-usernameChan:
@@ -453,8 +453,8 @@ func validateUsername(username string) error {
 	}
 	// Check for invalid characters (allow alphanumeric, underscore, dash)
 	for _, char := range username {
-		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || 
-			 (char >= '0' && char <= '9') || char == '_' || char == '-') {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') ||
+			(char >= '0' && char <= '9') || char == '_' || char == '-') {
 			return fmt.Errorf("username can only contain letters, numbers, underscore, and dash")
 		}
 	}
