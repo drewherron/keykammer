@@ -8,14 +8,21 @@ import (
 )
 
 func main() {
-	// Command line argument parsing
-	keyfile := flag.String("keyfile", "", "Path to key file (required)")
-	port := flag.Int("port", DefaultPort, "Port to use for chat server")
-	password := flag.String("password", "", "Optional password for key derivation (empty uses keyfile only)")
-	size := flag.Int("size", 2, "Maximum users per room (for maximum privacy)")
-	discoveryServer := flag.String("discovery-server", DefaultDiscoveryServer, "Discovery server URL")
-	discoveryServerMode := flag.Bool("discovery-server-mode", false, "Run as HTTP discovery server")
-	connectDirect := flag.String("connect", "", "Connect directly to server at IP:PORT (bypasses discovery)")
+	// Load configuration automatically (looks for keykammer.yaml in current directory)
+	config, err := LoadConfig("")
+	if err != nil {
+		fmt.Printf("Error loading config: %v\n", err)
+		os.Exit(1)
+	}
+	
+	// Command line argument parsing with config defaults
+	keyfile := flag.String("keyfile", config.Keyfile, "Path to key file (required)")
+	port := flag.Int("port", config.Port, "Port to use for chat server")
+	password := flag.String("password", config.Password, "Optional password for key derivation (empty uses keyfile only)")
+	size := flag.Int("size", config.MaxUsers, "Maximum users per room (for maximum privacy)")
+	discoveryServer := flag.String("discovery-server", config.DiscoveryServer, "Discovery server URL")
+	discoveryServerMode := flag.Bool("discovery-server-mode", config.DiscoveryServerMode, "Run as HTTP discovery server")
+	connectDirect := flag.String("connect", config.ConnectDirect, "Connect directly to server at IP:PORT (bypasses discovery)")
 	version := flag.Bool("version", false, "Show version information")
 	flag.Parse()
 

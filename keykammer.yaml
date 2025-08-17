@@ -1,0 +1,30 @@
+# Keykammer Configuration File
+# This file contains the default configuration for Keykammer
+# Modify these values to change the default behavior
+# Command line flags will override these settings
+
+# Connection Settings
+# Port for the chat server
+port: 53952
+
+# Discovery server URL - use "none" to disable discovery server
+discovery_server: "https://discovery.keykammer.com"
+
+# Connect directly to a server (bypasses discovery server)
+# Format: "IP:PORT" - leave empty to use discovery server
+connect_direct: ""
+
+# File and Security Settings  
+# Path to the keyfile - leave empty to require -keyfile flag
+keyfile: ""
+
+# Optional password for additional security
+password: ""
+
+# Room Settings
+# Maximum number of users per room
+max_users: 2
+
+# Server Mode Settings
+# Set to true to run as a discovery server instead of chat client
+discovery_server_mode: false
