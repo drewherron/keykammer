@@ -209,10 +209,52 @@ The cryptographic implementation uses Go's standard `crypto/aes` and `crypto/cip
 
 Room IDs are computed using SHA-256 to ensure they are unpredictable without the keyfile, preventing room enumeration attacks. The consistent salt ensures that the same keyfile always produces the same room ID and encryption key, enabling reliable room discovery.
 
+### Configuration
+
+Keykammer supports YAML configuration files for setting default values, eliminating the need to specify command line arguments repeatedly.
+
+**Automatic Configuration Loading:**
+- Keykammer automatically looks for `keykammer.yaml` in the current directory
+- If found, values from the config file become the new defaults
+- Command line flags always override config file values
+- If no config file exists, built-in defaults are used
+
+**Configuration File Format:**
+```yaml
+# Connection Settings
+port: 53952
+discovery_server: "https://discovery.keykammer.com"
+connect_direct: ""
+
+# File and Security Settings  
+keyfile: ""
+password: ""
+
+# Room Settings
+max_users: 2
+
+# Server Mode Settings
+discovery_server_mode: false
+```
+
+**Usage Examples:**
+```bash
+# With config file - uses values from keykammer.yaml
+./keykammer -keyfile photo.jpg
+
+# Override config values with command line flags
+./keykammer -keyfile photo.jpg -port 9999
+
+# Without config file - uses built-in defaults
+./keykammer -keyfile photo.jpg -port 53952
+```
+
+The included `keykammer.yaml` contains the standard default values with documentation. Simply edit this file to customize your default settings.
+
 ### Command Line Options
 
 - `-keyfile path` - File to use as room key (required)
-- `-discovery-server URL` - Discovery server address (default: auto-detect)
+- `-discovery-server URL` - Discovery server address (default: https://discovery.keykammer.com)
 - `-discovery-server-mode` - Run as discovery server
 - `-connect IP:PORT` - Connect directly bypassing discovery
 - `-port 53952` - Port for chat server (default: 53952)
@@ -255,6 +297,7 @@ The codebase is organized into focused modules for maintainability:
 - **HKDF** (`golang.org/x/crypto/hkdf`) - Key derivation function
 - **TUI** (`github.com/rivo/tview`) - Terminal user interface library
 - **UPnP** (`github.com/huin/goupnp`) - Automatic port forwarding
+- **YAML** (`gopkg.in/yaml.v3`) - Configuration file parsing
 
 ### Building
 
