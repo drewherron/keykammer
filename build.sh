@@ -6,7 +6,7 @@
 set -e
 
 # Default version
-VERSION="${1:-1.0.0}"
+VERSION="${1:-0.3.0-alpha}"
 BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 
@@ -22,7 +22,7 @@ go build \
         -X 'main.Version=$VERSION' \
         -X 'main.BuildTime=$BUILD_TIME' \
         -X 'main.GitCommit=$GIT_COMMIT'" \
-    -o keykammer *.go
+    -o keykammer-$VERSION *.go
 
-echo "Build complete: ./keykammer"
-echo "Run './keykammer -version' to verify build information"
+echo "Build complete: ./keykammer-$VERSION"
+echo "Run './keykammer-$VERSION -version' to verify build information"

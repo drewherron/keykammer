@@ -1,7 +1,7 @@
 # Keykammer Build System
 
 # Version information
-VERSION ?= 1.0.0
+VERSION ?= 0.3.0-alpha
 BUILD_TIME := $(shell date -u '+%Y-%m-%d %H:%M:%S UTC')
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GO_VERSION := $(shell go version | cut -d' ' -f3)
@@ -30,10 +30,10 @@ release:
 .PHONY: build-all
 build-all: clean-dist
 	mkdir -p dist
-	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/keykammer-linux-amd64 *.go
-	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/keykammer-windows-amd64.exe *.go
-	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/keykammer-macos-intel *.go
-	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/keykammer-macos-arm64 *.go
+	GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -o dist/keykammer-$(VERSION)-linux-amd64 *.go
+	GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -o dist/keykammer-$(VERSION)-windows-amd64.exe *.go
+	GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -o dist/keykammer-$(VERSION)-macos-intel *.go
+	GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -o dist/keykammer-$(VERSION)-macos-arm64 *.go
 	@echo "Built binaries:"
 	@ls -la dist/
 
@@ -41,10 +41,10 @@ build-all: clean-dist
 .PHONY: release-all
 release-all: clean-dist
 	mkdir -p dist
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-linux-amd64 *.go
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-windows-amd64.exe *.go
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-macos-intel *.go
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-macos-arm64 *.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-linux-amd64 *.go
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-windows-amd64.exe *.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-macos-intel *.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-macos-arm64 *.go
 	@echo "Built optimized release binaries:"
 	@ls -la dist/
 
