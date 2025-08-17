@@ -1,10 +1,10 @@
 # Keykammer
 
-**File-Based P2P Encrypted Chat Rooms**
+**File-Based P2P Encrypted Chatrooms**
 
-Keykammer is a peer-to-peer encrypted chat application where any arbitrary file serves as both the room identifier and encryption key. Users with the same file can join the same secure chat room from anywhere on the internet. Without the file, there is no way to connect to the room, decrypt the messages, or even know that the room exists.
+Keykammer is a peer-to-peer encrypted chat application where any arbitrary file serves as both the room identifier and encryption key. Users with the same file can join the same secure chatroom from anywhere on the internet. Without the file, there is no way to connect to the room, decrypt the messages, or even know that the room exists.
 
-The original idea was for any two users to run a program using an arbitrary file, and connect to a private chat room based on that file. Of course, that alone would not provide any required addresses to complete the connection, so a intermediate (and optional) "discovery server" was added to route users to the correct IP address.
+The original idea was for any two users to run a program using an arbitrary file, and connect to a private chatroom based on that file. Of course, that alone would not provide any required addresses to complete the connection, so a intermediate (and optional) "discovery server" was added to route users to the correct IP address.
 
 ### How It Works
 
@@ -12,15 +12,17 @@ This might best be explained by describing an instance of actual use.
 
 Alice runs the program using a picture of her dog as the keyfile: `./keykammer -keyfile fluffy.jpg`. A SHA-256 hash is created from the file, to be used as both the room ID and the key to encrypt any messages. On a remote discovery server, no existing room is found with that room ID, so the room becomes `LISTED` (i.e., Alice's IP address is associated with that room ID).
 
-Bob runs the program with the same file. Hashing the file provides them with the room ID. The remote discovery server looks up Alice's IP address by this room ID, and connects Bob *directly* to Alice's room. The two users now have a private chat room, directly encrypted using a key based on their arbitrary keyfile.
+Bob runs the program with the same file. Hashing the file provides him with the room ID. The remote discovery server looks up Alice's IP address by this room ID, and connects Bob *directly* to Alice's room. The two users now have a private chatroom, directly encrypted using a key based on their arbitrary keyfile.
 
 By default, rooms have a capacity of only two users (this can be changed by command line argument). After Bob joins the room, the listing is removed from the discovery server. There is now no evidence on the discovery server that the room ever existed. When some third user runs the program using the same keyfile, the process starts over and a new room is created.
 
-Alice could have avoided listing the room on the discovery server entirely by using `-discovery-server none` (or any invalid address). This starts the chat server locally, without using any discovery server. In this case, Bob would need Alice's IP address, and would run the program using `-connect IP:PORT`.
+Alice could have entirely avoided listing the room on the discovery server by using `-discovery-server none` (or any invalid address). This starts the chat server locally, without using any discovery server. In this case, Bob would need Alice's IP address, and would run the program using `-connect IP:PORT`.
+
+If you want to use a discovery server but you don't trust my central discovery server, you can run your own using `-discovery-server-mode`. Then supply the address to that server when running a client with `-discovery-server ADDRESS`.
 
 ### Features
 
-- **File-based room discovery** - Any file creates a unique chat room ID
+- **File-based room discovery** - Any file creates a unique chatroom ID
 - **Internet-wide P2P chat** - Users anywhere can connect using discovery server
 - **Real-time bidirectional messaging** - Send and receive messages instantly
 - **End-to-end encryption** - AES-256-GCM encryption of all chat messages
@@ -38,18 +40,39 @@ Alice could have avoided listing the room on the discovery server entirely by us
 ### Quick Start
 
 **1. Run a discovery server (on a VM or public server):**
+
+*Linux/macOS:*
 ```bash
 ./keykammer -discovery-server-mode -port 53952
 ```
 
+*Windows:*
+```cmd
+keykammer.exe -discovery-server-mode -port 53952
+```
+
 **2. Start first chat instance:**
+
+*Linux/macOS:*
 ```bash
 ./keykammer -keyfile myfile.txt -discovery-server http://your-server:53952
 ```
 
+*Windows:*
+```cmd
+keykammer.exe -keyfile myfile.txt -discovery-server http://your-server:53952
+```
+
 **3. Join from another computer:**
+
+*Linux/macOS:*
 ```bash
 ./keykammer -keyfile myfile.txt -discovery-server http://your-server:53952
+```
+
+*Windows:*
+```cmd
+keykammer.exe -keyfile myfile.txt -discovery-server http://your-server:53952
 ```
 
 Both users can now chat in real-time. The first user automatically becomes the server, the second connects as a client. UPnP will attempt automatic port forwarding. When the room reaches capacity, all evidence of it is deleted from the discovery server.
@@ -57,23 +80,51 @@ Both users can now chat in real-time. The first user automatically becomes the s
 ### Usage Examples
 
 **Basic chat (2 users max by default):**
+
+*Linux/macOS:*
 ```bash
 ./keykammer -keyfile photo.jpg
 ```
 
+*Windows:*
+```cmd
+keykammer.exe -keyfile photo.jpg
+```
+
 **Larger group chat (up to 5 users):**
+
+*Linux/macOS:*
 ```bash
 ./keykammer -keyfile document.pdf -size 5
 ```
 
+*Windows:*
+```cmd
+keykammer.exe -keyfile document.pdf -size 5
+```
+
 **Direct connection (bypass discovery):**
+
+*Linux/macOS:*
 ```bash
 ./keykammer -keyfile myfile.txt -connect 192.168.1.100:53952
 ```
 
+*Windows:*
+```cmd
+keykammer.exe -keyfile myfile.txt -connect 192.168.1.100:53952
+```
+
 **With password for additional security:**
+
+*Linux/macOS:*
 ```bash
 ./keykammer -keyfile data.bin -password "additional secret"
+```
+
+*Windows:*
+```cmd
+keykammer.exe -keyfile data.bin -password "additional secret"
 ```
 
 ## Cryptographic Security
@@ -198,6 +249,7 @@ The codebase is organized into focused modules for maintainability:
 
 ### Dependencies
 
+- **Go** (obviously)
 - **gRPC** (`google.golang.org/grpc`) - High-performance RPC framework
 - **Protocol Buffers** (`google.golang.org/protobuf`) - Message serialization
 - **HKDF** (`golang.org/x/crypto/hkdf`) - Key derivation function
@@ -205,6 +257,11 @@ The codebase is organized into focused modules for maintainability:
 - **UPnP** (`github.com/huin/goupnp`) - Automatic port forwarding
 
 ### Building
+
+**Be sure Go is installed:**
+```
+sudo apt install golang
+```
 
 **Using Make (recommended):**
 ```bash
