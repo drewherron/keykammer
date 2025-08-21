@@ -1,0 +1,34 @@
+[Unit]
+Description=Keykammer Discovery Server
+Documentation=https://github.com/drewherron/keykammer
+After=network.target network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=keykammer
+Group=keykammer
+ExecStart=/usr/local/bin/keykammer -discovery-server-mode -port 53952
+Restart=always
+RestartSec=5
+TimeoutStopSec=30
+
+# Security settings
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=yes
+ReadWritePaths=/var/lib/keykammer
+WorkingDirectory=/var/lib/keykammer
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=keykammer-discovery
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+
+[Install]
+WantedBy=multi-user.target
