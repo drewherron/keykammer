@@ -4,7 +4,7 @@
 
 Keykammer is a peer-to-peer encrypted chat application where any arbitrary file serves as both the room identifier and encryption key. Users with the same file can join the same secure chatroom from anywhere on the internet. Without the file, there is no way to connect to the room, decrypt the messages, or even know that the room exists.
 
-The original idea was for any two users to run a program using an arbitrary file, and connect to a private chatroom based on that file. Of course, that alone would not provide any required addresses to complete the connection, so a intermediate (and optional) "discovery server" was added to route users to the correct IP address.
+The original idea was for any two users to run a program using an arbitrary file, and connect to a private chatroom based on that file. Of course, that alone would not provide any required addresses to complete the connection, so an intermediate "discovery server" was added to route users to the correct IP address. The discovery server can be bypassed by providing the other user's IP address directly.
 
 ### How It Works
 
