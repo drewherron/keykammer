@@ -188,7 +188,12 @@ func updateUserList(users []string) {
 	}
 	
 	usersMutex.Lock()
-	currentUsers = make([]string, len(users))
+	// Use memory pool for user list to reduce allocations
+	if cap(currentUsers) < len(users) {
+		currentUsers = make([]string, len(users))
+	} else {
+		currentUsers = currentUsers[:len(users)]
+	}
 	copy(currentUsers, users)
 	usersMutex.Unlock()
 	
