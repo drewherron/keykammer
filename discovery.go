@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -65,15 +66,50 @@ func isDiscoveryServerAvailable(discoveryURL string) bool {
 	return false
 }
 
-// createDiscoveryClient creates an HTTP client with reasonable timeouts for discovery operations
-func createDiscoveryClient() *http.Client {
-	return &http.Client{
-		Timeout: time.Duration(DiscoveryTimeout) * time.Second,
+// Global HTTP client with optimized settings for discovery operations
+var discoveryHTTPClient *http.Client
+
+func init() {
+	// Create optimized HTTP client for discovery operations
+	transport := &http.Transport{
+		// Connection pooling settings
+		MaxIdleConns:        10,
+		MaxIdleConnsPerHost: 5,
+		IdleConnTimeout:     30 * time.Second,
+		
+		// Timeout settings
+		TLSHandshakeTimeout:   5 * time.Second,
+		ResponseHeaderTimeout: 10 * time.Second,
+		
+		// Keep-alive settings
+		DisableKeepAlives: false,
+		
+		// Compression
+		DisableCompression: false,
 	}
+	
+	discoveryHTTPClient = &http.Client{
+		Transport: transport,
+		Timeout:   time.Duration(DiscoveryTimeout) * time.Second,
+	}
+}
+
+// createDiscoveryClient returns the optimized HTTP client for discovery operations
+func createDiscoveryClient() *http.Client {
+	return discoveryHTTPClient
 }
 
 // registerRoom registers a new room with the discovery server
 func registerRoom(discoveryURL, roomID, serverAddr string, maxUsers int) error {
+	// Validate inputs
+	if err := validateRequired(map[string]string{
+		"discoveryURL": discoveryURL,
+		"roomID":       roomID,
+		"serverAddr":   serverAddr,
+	}); err != nil {
+		return err
+	}
+
 	client := createDiscoveryClient()
 
 	registration := RoomRegistration{
@@ -85,21 +121,32 @@ func registerRoom(discoveryURL, roomID, serverAddr string, maxUsers int) error {
 
 	jsonData, err := json.Marshal(registration)
 	if err != nil {
-		return fmt.Errorf("failed to marshal registration: %v", err)
+		return ConfigError("failed to serialize room registration", err)
 	}
 
-	resp, err := client.Post(discoveryURL+"/api/rooms", "application/json", bytes.NewBuffer(jsonData))
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(DiscoveryTimeout)*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", discoveryURL+"/api/rooms", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return fmt.Errorf("failed to register room: %v", err)
+		return NetworkError("failed to create registration request", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := client.Do(req)
+	if err != nil {
+		setDiscoveryStatus(DiscoveryDisconnected)
+		return NetworkError("failed to register room with discovery server", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		setDiscoveryStatus(DiscoveryDisconnected)
-		return fmt.Errorf("registration failed with status: %d", resp.StatusCode)
+		return DiscoveryError(fmt.Sprintf("registration failed with HTTP status %d", resp.StatusCode), nil)
 	}
 
 	setDiscoveryStatus(DiscoveryRoomListed)
+	logDebug("Room registered successfully with discovery server")
 	return nil
 }
 
@@ -324,7 +371,6 @@ func deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL string, maxRetries in
 
 // checkDiscoveryAndFallback tests discovery server availability and logs fallback mode
 func checkDiscoveryAndFallback(discoveryURL string, port int) bool {
-	//	fmt.Printf("Testing discovery server availability...\n")
 
 	if isDiscoveryServerAvailable(discoveryURL) {
 		fmt.Printf("Discovery server available: %s\n", discoveryURL)
@@ -372,21 +418,47 @@ func checkRoomJoinability(roomID string, current, max int) (bool, error) {
 
 // Discovery Server HTTP Handlers
 
-// runDiscoveryServer starts the HTTP discovery server
+// runDiscoveryServer starts the HTTP discovery server with graceful shutdown
 func runDiscoveryServer(port int) error {
-	http.HandleFunc("/health", handleHealth)
-	http.HandleFunc("/api/rooms", handleRooms)
-	http.HandleFunc("/api/rooms/", handleSpecificRoom)
+	// Create HTTP server with explicit configuration
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", handleHealth)
+	mux.HandleFunc("/api/rooms", handleRooms)
+	mux.HandleFunc("/api/rooms/", handleSpecificRoom)
 
 	addr := fmt.Sprintf(":%d", port)
-	fmt.Printf("Discovery server listening on %s\n", addr)
-	fmt.Printf("Endpoints:\n")
-	fmt.Printf("  GET  /health        - Health check\n")
-	fmt.Printf("  POST /api/rooms     - Register room\n")
-	fmt.Printf("  GET  /api/rooms/{id} - Lookup room\n")
-	fmt.Printf("  DELETE /api/rooms/{id} - Delete room\n")
+	server := &http.Server{
+		Addr:    addr,
+		Handler: mux,
+		// Production timeouts
+		ReadTimeout:  30 * time.Second,
+		WriteTimeout: 30 * time.Second,
+		IdleTimeout:  120 * time.Second,
+	}
 
-	return http.ListenAndServe(addr, nil)
+	// Register graceful shutdown for HTTP server
+	RegisterShutdownCallback(func() error {
+		logDebug("Shutting down discovery HTTP server")
+		
+		// Create context with timeout for shutdown
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		
+		return server.Shutdown(ctx)
+	})
+
+	logInfo("Discovery server listening on %s", addr)
+	logInfo("Endpoints:")
+	logInfo("  GET  /health        - Health check")
+	logInfo("  POST /api/rooms     - Register room")
+	logInfo("  GET  /api/rooms/{id} - Lookup room")
+	logInfo("  DELETE /api/rooms/{id} - Delete room")
+
+	err := server.ListenAndServe()
+	if err != nil && err != http.ErrServerClosed {
+		return err
+	}
+	return nil
 }
 
 // handleHealth provides a simple health check endpoint
