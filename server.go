@@ -6,8 +6,6 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/signal"
-	"strings"
 	"sync"
 	"time"
 
@@ -309,11 +307,18 @@ func (s *server) getTakenUsernames() []string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	taken := make([]string, 0, len(s.usernames))
+	// Use memory pool for efficient string slice allocation
+	taken := getStringSlice()
+	defer putStringSlice(taken)
+	
 	for username := range s.usernames {
-		taken = append(taken, username)
+		*taken = append(*taken, username)
 	}
-	return taken
+	
+	// Return a copy since we're returning the slice to the pool
+	result := make([]string, len(*taken))
+	copy(result, *taken)
+	return result
 }
 
 // removeClient cleans up a client on disconnect
@@ -346,12 +351,15 @@ func (s *server) getUserList() string {
 		return "No users currently in the room."
 	}
 
-	var userList []string
+	// Use memory pool for efficient string slice allocation
+	userList := getStringSlice()
+	defer putStringSlice(userList)
+	
 	for _, clientInfo := range s.clients {
-		userList = append(userList, clientInfo.Username)
+		*userList = append(*userList, clientInfo.Username)
 	}
 
-	return fmt.Sprintf("Users in room (%d): %s", len(s.clients), strings.Join(userList, ", "))
+	return fmt.Sprintf("Users in room (%d): %s", len(s.clients), efficientStringJoin(*userList, ", "))
 }
 
 // handleUserListCommand processes /users or /who commands
@@ -365,7 +373,7 @@ func (s *server) notifyUserListChange() {
 	userList := s.getUsernameList()
 
 	// Create a system message with user list info
-	userListMsg := fmt.Sprintf("USERLIST:%s", strings.Join(userList, ","))
+	userListMsg := fmt.Sprintf("USERLIST:%s", efficientStringJoin(userList, ","))
 
 	// Broadcast to all clients as a system message
 	systemMsg := &pb.ChatMessage{
@@ -383,12 +391,18 @@ func (s *server) getUsernameList() []string {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 
-	var usernames []string
+	// Use memory pool for efficient string slice allocation
+	userList := getStringSlice()
+	defer putStringSlice(userList)
+	
 	for _, clientInfo := range s.clients {
-		usernames = append(usernames, clientInfo.Username)
+		*userList = append(*userList, clientInfo.Username)
 	}
-
-	return usernames
+	
+	// Return a copy since we're returning the slice to the pool
+	result := make([]string, len(*userList))
+	copy(result, *userList)
+	return result
 }
 
 // getRoomStatus determines the current room status based on capacity and discovery state
@@ -439,22 +453,19 @@ func runServer(roomID string, port int, maxUsers int) {
 	// Create server instance with room ID, port, and max users
 	serverInstance := newServer(roomID, port, maxUsers, "")
 
-	// Graceful shutdown handling
+	// Create gRPC server and register service
 	grpcServer := grpc.NewServer()
 	pb.RegisterKeykammerServiceServer(grpcServer, serverInstance)
-	// Set up signal handling for graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, os.Interrupt)
+	
+	// Register graceful shutdown for the server
+	registerServerShutdown(grpcServer)
 
-	go func() {
-		<-sigChan
-		fmt.Printf("\nReceived interrupt signal, shutting down server...\n")
-		grpcServer.GracefulStop()
-	}()
-
-	fmt.Printf("Server ready and listening on :%d\n", port)
+	logInfo("Server ready and listening on :%d", port)
 	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+		if !IsShuttingDown() {
+			logError("Failed to serve: %v", err)
+			os.Exit(1)
+		}
 	}
 }
 
@@ -489,41 +500,30 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		// Create server instance with room ID, port, and max users
 		serverInstance := newServer(roomID, port, maxUsers, discoveryURL)
 
-		// Graceful shutdown handling
+		// Create gRPC server and register service
 		grpcServer := grpc.NewServer()
 		pb.RegisterKeykammerServiceServer(grpcServer, serverInstance)
 
-		// Set up signal handling for graceful shutdown
-		sigChan := make(chan os.Signal, 1)
-		signal.Notify(sigChan, os.Interrupt)
+		// Register graceful shutdown components
+		registerServerShutdown(grpcServer)
+		registerDiscoveryCleanup(roomID, discoveryURL)
+		
+		// Register UPnP cleanup if available
+		if upnpMapping != nil {
+			RegisterShutdownCallback(func() error {
+				logDebug("Cleaning up UPnP port forwarding")
+				return removeUPnPPortForwarding(upnpMapping)
+			})
+		}
 
-		go func() {
-			<-sigChan
-			fmt.Printf("\nReceived interrupt signal, shutting down server...\n")
-
-			// Clean up UPnP port forwarding
-			if upnpMapping != nil {
-				err := removeUPnPPortForwarding(upnpMapping)
-				if err != nil {
-					fmt.Printf("Failed to remove UPnP mapping: %v\n", err)
-				}
-			}
-
-			// Use a timeout for graceful shutdown to avoid hanging
-			go func() {
-				time.Sleep(2 * time.Second) // Give 2 seconds for graceful shutdown
-				fmt.Printf("Force stopping server...\n")
-				grpcServer.Stop() // Force stop if graceful shutdown takes too long
-			}()
-
-			grpcServer.GracefulStop()
-		}()
-
-		fmt.Printf("Server ready and listening on :%d\n", port)
+		logInfo("Server ready and listening on :%d", port)
 		serverReady <- true
 
 		if err := grpcServer.Serve(lis); err != nil {
-			log.Fatalf("Failed to serve: %v", err)
+			if !IsShuttingDown() {
+				logError("Failed to serve: %v", err)
+				os.Exit(1)
+			}
 		}
 	}()
 
@@ -547,26 +547,13 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 	fmt.Printf("  Local network: keykammer -connect localhost:%d -keyfile SAME_FILE\n", port)
 	fmt.Printf("  Internet: keykammer -connect %s:%d -keyfile SAME_FILE\n\n", publicIP, port)
 
-	// Set up cleanup function for discovery server deletion and UPnP cleanup
+	// Register TUI cleanup for graceful shutdown
+	registerTUICleanup()
+	
+	// Set up legacy cleanup function for compatibility with existing client code
 	setGlobalCleanup(func() {
-		// Clean up UPnP port forwarding
-		if upnpMapping != nil {
-			err := removeUPnPPortForwarding(upnpMapping)
-			if err != nil {
-				fmt.Printf("Failed to remove UPnP mapping: %v\n", err)
-			}
-		}
-
-		// Clean up discovery server registration
-		if discoveryURL != "" {
-			fmt.Printf("Deleting room from discovery server...\n")
-			err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, DefaultMaxRetries)
-			if err != nil {
-				fmt.Printf("Failed to delete room from discovery: %v\n", err)
-			} else {
-				fmt.Printf("Room cleanup completed\n")
-			}
-		}
+		// This is now handled by the graceful shutdown system
+		// but kept for compatibility with existing signal handlers
 	})
 
 	// Connect to our own server as a client to show TUI
@@ -584,7 +571,14 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		}
 	}
 
-	// TODO: Gracefully shutdown the server goroutine
 	fmt.Printf("Shutting down server...\n")
-	os.Exit(0) // For now, force exit to ensure clean shutdown
+	
+	// Graceful shutdown - give the server time to cleanup
+	go func() {
+		time.Sleep(2 * time.Second)
+		os.Exit(0)
+	}()
+	
+	// Allow any pending cleanup to complete
+	time.Sleep(500 * time.Millisecond)
 }
