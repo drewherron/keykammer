@@ -12,6 +12,17 @@ LDFLAGS := -ldflags "\
 	-X 'main.BuildTime=$(BUILD_TIME)' \
 	-X 'main.GitCommit=$(GIT_COMMIT)'"
 
+# Production build flags (optimized)
+PROD_LDFLAGS := -ldflags "\
+	-s -w \
+	-X 'main.Version=$(VERSION)' \
+	-X 'main.BuildTime=$(BUILD_TIME)' \
+	-X 'main.GitCommit=$(GIT_COMMIT)'"
+
+# Production Go build flags for maximum optimization
+PROD_BUILDFLAGS := -trimpath -buildvcs=false
+PROD_GCFLAGS := -N -l
+
 # Default target
 .PHONY: all
 all: build
@@ -24,7 +35,7 @@ build:
 # Build for release (optimized)
 .PHONY: release
 release:
-	CGO_ENABLED=0 go build $(LDFLAGS) -a -installsuffix cgo -o keykammer *.go
+	CGO_ENABLED=0 go build $(PROD_BUILDFLAGS) $(PROD_LDFLAGS) -a -installsuffix cgo -o keykammer *.go
 
 # Build for all platforms
 .PHONY: build-all
@@ -41,10 +52,10 @@ build-all: clean-dist
 .PHONY: release-all
 release-all: clean-dist
 	mkdir -p dist
-	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-linux-amd64 *.go
-	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-windows-amd64.exe *.go
-	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-macos-intel *.go
-	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-macos-arm64 *.go
+	CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build $(PROD_BUILDFLAGS) $(PROD_LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-linux-amd64 *.go
+	CGO_ENABLED=0 GOOS=windows GOARCH=amd64 go build $(PROD_BUILDFLAGS) $(PROD_LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-windows-amd64.exe *.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=amd64 go build $(PROD_BUILDFLAGS) $(PROD_LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-macos-intel *.go
+	CGO_ENABLED=0 GOOS=darwin GOARCH=arm64 go build $(PROD_BUILDFLAGS) $(PROD_LDFLAGS) -a -installsuffix cgo -o dist/keykammer-$(VERSION)-macos-arm64 *.go
 	@echo "Built optimized release binaries:"
 	@ls -la dist/
 
