@@ -8,6 +8,12 @@ import (
 )
 
 func main() {
+	// Initialize production memory optimizations
+	optimizeForProduction()
+	
+	// Initialize graceful shutdown handling
+	StartGracefulShutdownHandler()
+	
 	// Load configuration automatically (looks for keykammer.yaml in current directory)
 	config, err := LoadConfig("")
 	if err != nil {
