@@ -1,0 +1,14 @@
+keykammer.com, www.keykammer.com {
+    # Serve static website from docs folder
+    root * /opt/keykammer/docs
+    file_server
+
+    # Proxy API and health endpoints to discovery server
+    handle /api/* {
+        reverse_proxy localhost:53952
+    }
+
+    handle /health {
+        reverse_proxy localhost:53952
+    }
+}
