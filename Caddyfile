@@ -1,7 +1,9 @@
 keykammer.com, www.keykammer.com {
-    # Serve static website from docs folder
-    root * /opt/keykammer/docs
-    file_server
+    # Serve binaries from dist folder
+    handle /dist/* {
+        root * /opt/keykammer
+        file_server
+    }
 
     # Proxy API and health endpoints to discovery server
     handle /api/* {
@@ -11,4 +13,8 @@ keykammer.com, www.keykammer.com {
     handle /health {
         reverse_proxy localhost:53952
     }
+
+    # Serve static website from docs folder (must be last)
+    root * /opt/keykammer/docs
+    file_server
 }
