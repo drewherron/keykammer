@@ -1,0 +1,477 @@
+/* Keykammer Website Styles */
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    line-height: 1.6;
+    color: #e0e0e0;
+    background-color: #1a1a1a;
+}
+
+.container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 0 20px;
+}
+
+/* Header */
+header {
+    background: linear-gradient(135deg, #248371, #2a9782);
+    color: white;
+    padding: 1rem 0;
+    position: relative;
+}
+
+.header-content {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 2rem;
+}
+
+.logo-section {
+    text-align: center;
+    flex: 1;
+}
+
+header h1 {
+    font-family: "Blaka Hollow", system-ui;
+    font-size: 7rem;
+    margin-bottom: 0.2rem;
+    font-weight: 400;
+    color: black;
+    line-height: 0.9;
+}
+
+.tagline {
+    font-size: 1.2rem;
+    opacity: 0.9;
+    color: black;
+    padding-top: 0.7rem;
+}
+
+/* Status Box */
+.status-box {
+    background: #2a2a2a;
+    border: 1px solid #3a3a3a;
+    border-radius: 8px;
+    padding: 1rem;
+    text-align: center;
+    min-width: 200px;
+}
+
+.status-box.desktop-only {
+    position: absolute;
+    right: 20px;
+}
+
+.mobile-status-container {
+    background: #1a1a1a;
+    padding: 1rem 0;
+    border-bottom: 1px solid #3a3a3a;
+    display: none;
+}
+
+.desktop-only {
+    display: block;
+}
+
+.mobile-only {
+    display: none;
+}
+
+
+.status-label {
+    font-size: 0.9rem;
+    margin-bottom: 0.5rem;
+    opacity: 0.9;
+}
+
+.status-indicator {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 0.5rem;
+}
+
+.status-light {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: #95a5a6;
+    transition: all 0.3s ease;
+    box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+}
+
+.status-light.online {
+    background-color: #2fab93;
+    box-shadow: 0 0 15px rgba(47, 171, 147, 0.6);
+    animation: pulse-green 2s infinite;
+}
+
+.status-light.offline {
+    background-color: #e74c3c;
+    box-shadow: 0 0 15px rgba(231, 76, 60, 0.6);
+}
+
+.status-light.checking {
+    background-color: #f39c12;
+    box-shadow: 0 0 15px rgba(243, 156, 18, 0.6);
+    animation: pulse-orange 1s infinite;
+}
+
+.status-text {
+    font-size: 0.8rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+/* Animations */
+@keyframes pulse-green {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+}
+
+@keyframes pulse-orange {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.4; }
+}
+
+/* Main Content */
+main {
+    padding: 3rem 0;
+}
+
+.hero {
+    text-align: center;
+    margin-bottom: 4rem;
+}
+
+.hero h2 {
+    font-size: 2.2rem;
+    margin-top: 2rem;
+    margin-bottom: 1rem;
+    color: #6bd6c1;
+}
+
+.hero p {
+    font-size: 1.1rem;
+    margin-bottom: 2rem;
+    color: #b0b0b0;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+/* Warning Box */
+.warning-box {
+    background-color: #8b1538;
+    border: 2px solid #a91648;
+    border-radius: 8px;
+    padding: 1.5rem;
+    margin: 2rem auto;
+    max-width: 600px;
+    text-align: center;
+    box-shadow: 0 4px 15px rgba(139, 21, 56, 0.3);
+}
+
+.warning-title {
+    color: #ffb3c1;
+    font-size: 1.4rem;
+    font-weight: bold;
+    margin: 0 0 1rem 0;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.warning-box p {
+    color: #ffb3c1;
+    margin: 0;
+    line-height: 1.5;
+    font-size: 1rem;
+}
+
+/* Buttons */
+.cta-buttons {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn {
+    display: inline-block;
+    padding: 12px 24px;
+    text-decoration: none;
+    border-radius: 6px;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+}
+
+.btn.primary {
+    background-color: #2fab93;
+    color: black;
+    border-color: #2fab93;
+}
+
+.btn.primary:hover {
+    background-color: #248371;
+    border-color: #248371;
+    color: black;
+}
+
+.btn.secondary {
+    background-color: transparent;
+    color: #35bfa4;
+    border-color: #35bfa4;
+}
+
+.btn.secondary:hover {
+    background-color: #35bfa4;
+    color: black;
+}
+
+/* Features */
+.features {
+    margin: 3rem 0;
+}
+
+.features h3 {
+    font-size: 2rem;
+    margin-bottom: 1.5rem;
+    color: #57d0b9;
+    text-align: center;
+}
+
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 2rem;
+    margin-top: 2rem;
+}
+
+.feature {
+    background: #2a2a2a;
+    padding: 1.5rem;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    text-align: center;
+    border: 1px solid #3a3a3a;
+}
+
+.feature h4 {
+    color: #43cbb0;
+    margin-bottom: 1rem;
+}
+
+.features ul {
+    list-style: none;
+    max-width: 600px;
+    margin: 0 auto;
+}
+
+.features li {
+    background: #2a2a2a;
+    padding: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 6px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    border: 1px solid #3a3a3a;
+}
+
+.features li a {
+    color: #35bfa4;
+    text-decoration: none;
+}
+
+.features li a:hover {
+    text-decoration: underline;
+}
+
+/* Download Section */
+.download {
+    background: #2a2a2a;
+    padding: 2rem;
+    border-radius: 10px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+    text-align: center;
+    margin: 3rem 0;
+    border: 1px solid #3a3a3a;
+}
+
+.download h3 {
+    color: #57d0b9;
+    margin-bottom: 1rem;
+}
+
+.download-links {
+    display: flex;
+    gap: 1rem;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 2rem 0;
+}
+
+.download-btn {
+    display: flex;
+    flex-direction: column;
+    padding: 1rem 1.5rem;
+    background: #3a3a3a;
+    border: 2px solid #4a4a4a;
+    border-radius: 8px;
+    text-decoration: none;
+    color: #e0e0e0;
+    transition: all 0.3s ease;
+    min-width: 120px;
+}
+
+.download-btn:hover {
+    background: #2fab93;
+    border-color: #2fab93;
+    color: white;
+    transform: translateY(-2px);
+}
+
+.platform {
+    font-weight: bold;
+    font-size: 1.1rem;
+}
+
+.arch {
+    font-size: 0.9rem;
+    opacity: 0.8;
+}
+
+.build-note {
+    margin-top: 1rem;
+    font-size: 0.9rem;
+    color: #b0b0b0;
+}
+
+.build-note a {
+    color: #35bfa4;
+    text-decoration: none;
+}
+
+.build-note a:hover {
+    text-decoration: underline;
+}
+
+/* Usage Section */
+.usage {
+    margin: 3rem 0;
+}
+
+.usage h3 {
+    color: #57d0b9;
+    margin-bottom: 1rem;
+    text-align: center;
+}
+
+.code-block {
+    background: #1e1e1e;
+    color: #e0e0e0;
+    padding: 1.5rem;
+    border-radius: 8px;
+    font-family: 'Courier New', monospace;
+    overflow-x: auto;
+    margin: 1rem 0;
+    border: 1px solid #3a3a3a;
+}
+
+.code-block code {
+    font-size: 0.9rem;
+    line-height: 1.4;
+}
+
+/* Support Section */
+.support-section {
+    text-align: center;
+    padding: 2rem 0;
+    margin-top: 3rem;
+}
+
+/* Footer */
+footer {
+    background: #1e1e1e;
+    color: #e0e0e0;
+    text-align: center;
+    padding: 2rem 0;
+    margin-top: 2rem;
+    border-top: 1px solid #3a3a3a;
+}
+
+footer a {
+    color: #35bfa4;
+    text-decoration: none;
+}
+
+footer a:hover {
+    text-decoration: underline;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .container {
+        padding: 0 15px;
+    }
+
+    .header-content {
+        flex-direction: column;
+        text-align: center;
+        gap: 1rem;
+    }
+
+    .logo-section {
+        text-align: center;
+    }
+
+    header h1 {
+        font-size: 3rem;
+    }
+
+    .desktop-only {
+        display: none;
+    }
+
+    .mobile-only {
+        display: block;
+    }
+
+    .mobile-status-container {
+        display: block;
+    }
+
+    .status-box.mobile-only {
+        margin: 0 auto;
+        min-width: auto;
+        width: 100%;
+        max-width: 250px;
+    }
+
+
+    .hero h2 {
+        font-size: 1.8rem;
+    }
+
+    .cta-buttons {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .download-links {
+        flex-direction: column;
+        align-items: center;
+    }
+
+    .feature-grid {
+        grid-template-columns: 1fr;
+    }
+}
