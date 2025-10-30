@@ -26,7 +26,7 @@ docker run -p 53952:53952 keykammer -discovery-server-mode
 
 # Run client with keyfile (mount from host)
 docker run -it -v /path/to/keyfile.txt:/app/keyfile.txt keykammer \
-  -keyfile /app/keyfile.txt -discovery-server http://host.docker.internal:53952
+  /app/keyfile.txt -discovery-server http://host.docker.internal:53952
 ```
 
 ## Production Discovery Server
@@ -84,7 +84,7 @@ Pass configuration through command line arguments:
 docker run -it \
   -v /path/to/keyfile.txt:/app/keyfile.txt \
   keykammer \
-  -keyfile /app/keyfile.txt \
+  /app/keyfile.txt \
   -discovery-server http://discovery.example.com:53952 \
   -port 53952
 ```

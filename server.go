@@ -542,10 +542,10 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 	fmt.Printf("\nServer started successfully! You are now the room owner.\n")
 	fmt.Printf("Connection options for others with the same keyfile:\n")
 	if discoveryURL != "" {
-		fmt.Printf("  Discovery (easiest): keykammer -keyfile SAME_FILE\n")
+		fmt.Printf("  Discovery (easiest): keykammer SAME_FILE\n")
 	}
-	fmt.Printf("  Local network: keykammer -connect localhost:%d -keyfile SAME_FILE\n", port)
-	fmt.Printf("  Internet: keykammer -connect %s:%d -keyfile SAME_FILE\n\n", publicIP, port)
+	fmt.Printf("  Local network: keykammer SAME_FILE -connect localhost:%d\n", port)
+	fmt.Printf("  Internet: keykammer SAME_FILE -connect %s:%d\n\n", publicIP, port)
 
 	// Register TUI cleanup for graceful shutdown
 	registerTUICleanup()

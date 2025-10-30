@@ -22,7 +22,6 @@ func main() {
 	}
 	
 	// Command line argument parsing with config defaults
-	keyfile := flag.String("keyfile", config.Keyfile, "Path to key file (required)")
 	port := flag.Int("port", config.Port, "Port to use for chat server")
 	password := flag.String("password", config.Password, "Optional password for key derivation (empty uses keyfile only)")
 	size := flag.Int("size", config.MaxUsers, "Maximum users per room (for maximum privacy)")
@@ -31,6 +30,14 @@ func main() {
 	connectDirect := flag.String("connect", config.ConnectDirect, "Connect directly to server at IP:PORT (bypasses discovery)")
 	version := flag.Bool("version", false, "Show version information")
 	flag.Parse()
+
+	// Get keyfile from first positional argument, or fall back to config
+	var keyfilePath string
+	if len(flag.Args()) > 0 {
+		keyfilePath = flag.Arg(0)
+	} else {
+		keyfilePath = config.Keyfile
+	}
 
 	// Handle version flag
 	if *version {
@@ -50,8 +57,10 @@ func main() {
 	}
 
 	// Validate required arguments
-	if *keyfile == "" {
-		fmt.Println("Error: -keyfile is required")
+	if keyfilePath == "" {
+		fmt.Println("Error: keyfile argument is required")
+		fmt.Println("Usage: keykammer <keyfile> [options]")
+		fmt.Println("Example: keykammer photo.jpg -size 5")
 		flag.Usage()
 		os.Exit(1)
 	}
@@ -72,7 +81,7 @@ func main() {
 	}
 
 	// Read and process keyfile
-	fileContent, err := readFile(*keyfile)
+	fileContent, err := readFile(keyfilePath)
 	if err != nil {
 		fmt.Printf("Error reading keyfile: %v\n", err)
 		os.Exit(1)
