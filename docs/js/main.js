@@ -116,7 +116,7 @@ function checkDiscoveryServerStatus() {
     const statusText = document.getElementById('status-text');
     const statusLightMobile = document.getElementById('status-light-mobile');
     const statusTextMobile = document.getElementById('status-text-mobile');
-    const discoveryServerUrl = 'http://discovery.keykammer.com:53952';
+    const discoveryServerUrl = ''; // Use relative URL to go through Caddy proxy
     
     // Set checking state for both desktop and mobile
     if (statusLight) {
