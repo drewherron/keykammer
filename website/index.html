@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keykammer - File-Based P2P Encrypted Chat</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Blaka&family=Blaka+Hollow&family=Source+Code+Pro:wght@450&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <header>
+        <div class="container">
+            <div class="header-content">
+                <div class="logo-section">
+                    <h1>KEYKAMMER</h1>
+                </div>
+                <div class="status-box desktop-only">
+                    <div class="status-label">Discovery server:</div>
+                    <div class="status-indicator">
+                        <div class="status-light" id="status-light"></div>
+                    </div>
+                    <div class="status-text" id="status-text">checking...</div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Mobile status box -->
+    <div class="mobile-status-container">
+        <div class="container">
+            <div class="status-box mobile-only">
+                <div class="status-label">Discovery server status:</div>
+                <div class="status-indicator">
+                    <div class="status-light" id="status-light-mobile"></div>
+                </div>
+                <div class="status-text" id="status-text-mobile">checking...</div>
+            </div>
+        </div>
+    </div>
+
+    <main class="container">
+        <section class="hero">
+            <h2>File-Based P2P Encrypted Chatrooms</h2>
+            <p>Inside every file is a chatroom trying to get out. Keykammer creates secure chatrooms using any arbitrary file as both the room identifier and encryption key. Users with the same file can connect to a private encrypted chat from anywhere on the internet.</p>
+
+            <div class="warning-box">
+                <h3 class="warning-title">WARNING</h3>
+                <p>This is experimental software and needs testing. It probably won't harm your computer but is not guaranteed to work reliably. I'm publishing this website now to allow people to help with testing and contribute code to get this to a more polished and reliable state.</p>
+            </div>
+
+        </section>
+
+        <section class="features">
+            <h3>How It Works</h3>
+            <div class="feature-grid">
+                <div class="feature">
+                    <h4>1. Choose Any File</h4>
+                    <p>Use any file as your room key - a photo, document, or any arbitrary file becomes your private chatroom identifier.</p>
+                </div>
+                <div class="feature">
+                    <h4>2. Auto-Connect</h4>
+                    <p>Users with the same file automatically find each other through the discovery server and connect directly.</p>
+                </div>
+                <div class="feature">
+                    <h4>3. Private Chat</h4>
+                    <p>Messages are encrypted end-to-end using AES-256-GCM. No chat history is ever saved to disk.</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="features">
+            <h3>Key Features</h3>
+            <ul>
+                <li><strong>End-to-end encryption</strong> - AES-256-GCM with HKDF key derivation</li>
+                <li><strong>Zero logging</strong> - No room data or messages stored anywhere</li>
+                <li><strong>Ephemeral rooms</strong> - Rooms exist only while users are connected</li>
+                <li><strong>Terminal interface</strong> - Clean TUI with real-time updates</li>
+                <li><strong>Auto port forwarding</strong> - UPnP support for easy networking</li>
+                <li><strong>Cross-platform</strong> - Works on Linux, macOS, and Windows</li>
+                <li><strong>Open Source</strong> - View the code on <a href="https://github.com/drewherron/keykammer">GitHub</a></li>
+            </ul>
+        </section>
+
+        <section id="download" class="download">
+            <h3>Download</h3>
+            <p>Get the latest release for your platform:</p>
+
+            <div class="download-links">
+                <a href="dist/keykammer-0.3.0-alpha-linux-amd64" class="download-btn" download>
+                    <span class="platform">Linux</span>
+                    <span class="arch">x86_64</span>
+                </a>
+                <a href="dist/keykammer-0.3.0-alpha-macos-intel" class="download-btn" download>
+                    <span class="platform">macOS</span>
+                    <span class="arch">Intel</span>
+                </a>
+                <a href="dist/keykammer-0.3.0-alpha-windows-amd64.exe" class="download-btn" download>
+                    <span class="platform">Windows</span>
+                    <span class="arch">x86_64</span>
+                </a>
+            </div>
+
+            <p class="build-note">Or <a href="https://github.com/drewherron/keykammer#building">build from source</a> using Go 1.19+</p>
+        </section>
+
+        <section class="usage">
+            <h3>Quick Start</h3>
+            <div class="code-block">
+                <code>
+# Basic usage - any file becomes a chatroom<br>
+./keykammer -keyfile photo.jpg<br><br>
+
+# With custom room size<br>
+./keykammer -keyfile document.pdf -size 5<br><br>
+
+# Direct connection (no discovery server)<br>
+./keykammer -keyfile myfile.txt -connect 192.168.1.100:53952
+                </code>
+            </div>
+        </section>
+    </main>
+
+    <!-- Buy Me a Coffee Section -->
+    <section class="support-section">
+        <div class="container">
+            <script type="text/javascript" src="https://cdnjs.buymeacoffee.com/1.0.0/button.prod.min.js" data-name="bmc-button" data-slug="drewherron" data-color="#35bfa3" data-emoji=""  data-font="Cookie" data-text="Buy me a coffee" data-outline-color="#000000" data-font-color="#000000" data-coffee-color="#FFDD00" ></script>
+        </div>
+    </section>
+
+    <footer>
+        <div class="container">
+            <p>&copy; 2025 Drew Herron. Open source under AGPL-3.0 License.</p>
+            <p><a href="https://github.com/drewherron/keykammer">GitHub</a> | <a href="https://github.com/drewherron/keykammer/issues">Report Issues</a></p>
+        </div>
+    </footer>
+
+    <script src="js/main.js"></script>
+</body>
+</html>
