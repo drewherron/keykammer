@@ -1,0 +1,5 @@
+# Alice's Keykammer Configuration
+port: 53952
+discovery_server: "http://discovery:53952"
+max_users: 2
+keyfile: "/app/keyfile.txt"

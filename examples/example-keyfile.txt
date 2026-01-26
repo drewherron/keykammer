@@ -1,0 +1,6 @@
+This is a sample keyfile for Keykammer Docker demonstration.
+Both Alice and Bob will use this file to join the same encrypted chatroom.
+The content of this file serves as both the room identifier and encryption key.
+
+You can replace this with any file - a photo, document, or any arbitrary data.
+Users with the same exact file content will be able to chat together.
