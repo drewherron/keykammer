@@ -1,0 +1,7 @@
+# Build output
+keykammer
+dist/
+
+# Go toolchain
+*.test
+*.out
