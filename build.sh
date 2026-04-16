@@ -6,7 +6,7 @@
 set -e
 
 # Default version
-VERSION="${1:-0.3.0-alpha}"
+VERSION="${1:-0.1.0}"
 BUILD_TIME=$(date -u '+%Y-%m-%d %H:%M:%S UTC')
 GIT_COMMIT=$(git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 

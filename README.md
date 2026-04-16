@@ -37,6 +37,30 @@ If you want to use a discovery server but you don't trust my central discovery s
 - **Discovery server** - HTTP REST API for room registration and lookup
 - **Direct connections** - Bypass discovery server for local/known IP connections
 
+## Installation
+
+### Download
+
+Pre-built binaries are available on the
+[Releases](https://github.com/drewherron/keykammer/releases) page for Linux,
+macOS (Intel and Apple Silicon), and Windows. Download the appropriate file,
+make it executable if necessary, and place it somewhere on your PATH:
+
+```
+# Linux
+chmod +x keykammer-linux-amd64
+sudo mv keykammer-linux-amd64 /usr/local/bin/keykammer
+
+# macOS
+chmod +x keykammer-macos-arm64
+sudo mv keykammer-macos-arm64 /usr/local/bin/keykammer
+
+# Windows: rename keykammer-windows-amd64.exe to keykammer.exe
+# and place it in a directory on your PATH
+```
+
+To build from source instead, see [Building](#building) below.
+
 ### Quick Start
 
 **1. Run a discovery server (on a VM or public server):**

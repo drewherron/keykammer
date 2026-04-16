@@ -1,7 +1,7 @@
 # Keykammer Build System
 
 # Version information
-VERSION ?= 0.3.0-alpha
+VERSION ?= 0.1.0
 BUILD_TIME := $(shell date -u '+%Y-%m-%d %H:%M:%S UTC')
 GIT_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null || echo "unknown")
 GO_VERSION := $(shell go version | cut -d' ' -f3)
@@ -110,4 +110,4 @@ help:
 	@echo "  help        - Show this help message"
 	@echo ""
 	@echo "Environment variables:"
-	@echo "  VERSION  - Override version number (default: 1.0.0)"
+	@echo "  VERSION  - Override version number (default: 0.1.0)"
