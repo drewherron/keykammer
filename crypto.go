@@ -64,10 +64,9 @@ func deriveKeyInfo(fileContent []byte, password string, maxUsers int) (*KeyInfo,
 	}
 	
 	return &KeyInfo{
-		RoomID:          roomID,
-		EncryptionKey:   encryptionKey,
-		MaxUsers:        maxUsers,
-		DiscoveryStatus: getDiscoveryStatus(),
+		RoomID:        roomID,
+		EncryptionKey: encryptionKey,
+		MaxUsers:      maxUsers,
 	}, nil
 }
 
