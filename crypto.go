@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"golang.org/x/crypto/hkdf"
+	"keykammer/internal/config"
 	pb "keykammer/proto"
 )
 
@@ -21,7 +22,7 @@ func deriveEncryptionKey(fileContent []byte, password string) ([]byte, error) {
 		return nil, ValidationError("file content cannot be empty for key derivation", nil)
 	}
 	
-	salt := []byte(KeyDerivationSalt)
+	salt := []byte(config.KeyDerivationSalt)
 	info := []byte("keykammer-encryption-key")
 	
 	// Combine file content and password as input key material
@@ -40,7 +41,7 @@ func deriveEncryptionKey(fileContent []byte, password string) ([]byte, error) {
 
 // deriveRoomID generates a room ID from file content and password using salted hash
 func deriveRoomID(fileContent []byte, password string) string {
-	salt := []byte(KeyDerivationSalt)
+	salt := []byte(config.KeyDerivationSalt)
 	// Concatenate salt + content + password
 	salted := append(salt, fileContent...)
 	salted = append(salted, []byte(password)...)
@@ -56,14 +57,14 @@ func deriveLocalServerAddress(fileContent []byte, password string, port int) str
 }
 
 // deriveKeyInfo bundles room ID and encryption key derived from file content
-func deriveKeyInfo(fileContent []byte, password string, maxUsers int) (*KeyInfo, error) {
+func deriveKeyInfo(fileContent []byte, password string, maxUsers int) (*config.KeyInfo, error) {
 	roomID := deriveRoomID(fileContent, password)
 	encryptionKey, err := deriveEncryptionKey(fileContent, password)
 	if err != nil {
 		return nil, err
 	}
 	
-	return &KeyInfo{
+	return &config.KeyInfo{
 		RoomID:        roomID,
 		EncryptionKey: encryptionKey,
 		MaxUsers:      maxUsers,
@@ -71,16 +72,16 @@ func deriveKeyInfo(fileContent []byte, password string, maxUsers int) (*KeyInfo,
 }
 
 // deriveKeyInfoLegacy provides backward compatibility for existing code that doesn't specify maxUsers
-func deriveKeyInfoLegacy(fileContent []byte, password string) (*KeyInfo, error) {
+func deriveKeyInfoLegacy(fileContent []byte, password string) (*config.KeyInfo, error) {
 	return deriveKeyInfo(fileContent, password, 2) // Default to 2 users for backward compatibility
 }
 
 // encrypt encrypts plaintext using AES-256-GCM with the provided key
 func encrypt(plaintext []byte, key []byte) ([]byte, error) {
 	// Validate key size
-	if len(key) != AESKeySize {
+	if len(key) != config.AESKeySize {
 		return nil, ValidationError(
-			fmt.Sprintf("invalid key size: %d bytes (expected %d)", len(key), AESKeySize), nil)
+			fmt.Sprintf("invalid key size: %d bytes (expected %d)", len(key), config.AESKeySize), nil)
 	}
 	
 	// Create AES cipher
@@ -110,9 +111,9 @@ func encrypt(plaintext []byte, key []byte) ([]byte, error) {
 // decrypt decrypts ciphertext using AES-256-GCM with the provided key
 func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 	// Validate key size
-	if len(key) != AESKeySize {
+	if len(key) != config.AESKeySize {
 		return nil, ValidationError(
-			fmt.Sprintf("invalid key size: %d bytes (expected %d)", len(key), AESKeySize), nil)
+			fmt.Sprintf("invalid key size: %d bytes (expected %d)", len(key), config.AESKeySize), nil)
 	}
 	
 	// Create AES cipher
@@ -197,8 +198,8 @@ func decryptMessageContent(msg *pb.ChatMessage, key []byte) (string, error) {
 
 // validateEncryptionKey checks if an encryption key is valid
 func validateEncryptionKey(key []byte) error {
-	if len(key) != AESKeySize {
-		return fmt.Errorf("invalid encryption key size: %d bytes (expected %d)", len(key), AESKeySize)
+	if len(key) != config.AESKeySize {
+		return fmt.Errorf("invalid encryption key size: %d bytes (expected %d)", len(key), config.AESKeySize)
 	}
 	return nil
 }

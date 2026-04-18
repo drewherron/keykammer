@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"strings"
+
+	"keykammer/internal/config"
 )
 
 func main() {
@@ -15,19 +17,19 @@ func main() {
 	StartGracefulShutdownHandler()
 	
 	// Load configuration automatically (looks for keykammer.yaml in current directory)
-	config, err := LoadConfig("")
+	cfg, err := config.LoadConfig("")
 	if err != nil {
 		fmt.Printf("Error loading config: %v\n", err)
 		os.Exit(1)
 	}
-	
+
 	// Command line argument parsing with config defaults
-	port := flag.Int("port", config.Port, "Port to use for chat server")
-	password := flag.String("password", config.Password, "Optional password for key derivation (empty uses keyfile only)")
-	size := flag.Int("size", config.MaxUsers, "Maximum users per room (for maximum privacy)")
-	discoveryServer := flag.String("discovery-server", config.DiscoveryServer, "Discovery server URL")
-	discoveryServerMode := flag.Bool("discovery-server-mode", config.DiscoveryServerMode, "Run as HTTP discovery server")
-	connectDirect := flag.String("connect", config.ConnectDirect, "Connect directly to server at IP:PORT (bypasses discovery)")
+	port := flag.Int("port", cfg.Port, "Port to use for chat server")
+	password := flag.String("password", cfg.Password, "Optional password for key derivation (empty uses keyfile only)")
+	size := flag.Int("size", cfg.MaxUsers, "Maximum users per room (for maximum privacy)")
+	discoveryServer := flag.String("discovery-server", cfg.DiscoveryServer, "Discovery server URL")
+	discoveryServerMode := flag.Bool("discovery-server-mode", cfg.DiscoveryServerMode, "Run as HTTP discovery server")
+	connectDirect := flag.String("connect", cfg.ConnectDirect, "Connect directly to server at IP:PORT (bypasses discovery)")
 	version := flag.Bool("version", false, "Show version information")
 	flag.Parse()
 
@@ -36,7 +38,7 @@ func main() {
 	if len(flag.Args()) > 0 {
 		keyfilePath = flag.Arg(0)
 	} else {
-		keyfilePath = config.Keyfile
+		keyfilePath = cfg.Keyfile
 	}
 
 	// Handle version flag
@@ -117,7 +119,7 @@ func main() {
 
 	if checkDiscoveryAndFallback(*discoveryServer, *port) {
 		// Discovery server is available - check for existing rooms
-		existingServerAddr, err := lookupRoomInDiscoveryWithRetry(keyInfo.RoomID, *discoveryServer, DefaultMaxRetries)
+		existingServerAddr, err := lookupRoomInDiscoveryWithRetry(keyInfo.RoomID, *discoveryServer, config.DefaultMaxRetries)
 		if err != nil {
 			fmt.Printf("Room lookup failed: %v\n", err)
 			if strings.Contains(err.Error(), "timeout") {
@@ -131,7 +133,7 @@ func main() {
 			fmt.Printf("Server will start at: %s\n", serverAddr)
 
 			// Try to register with discovery server (may fail, that's ok)
-			err = registerWithDiscoveryWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, DefaultMaxRetries)
+			err = registerWithDiscoveryWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, config.DefaultMaxRetries)
 			if err != nil {
 				fmt.Printf("Failed to register room: %v\n", err)
 				fmt.Printf("Continuing in direct connection mode\n")
@@ -150,7 +152,7 @@ func main() {
 			serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
 			fmt.Printf("Server address: %s\n", serverAddr)
 
-			err = registerWithDiscoveryWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, DefaultMaxRetries)
+			err = registerWithDiscoveryWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, config.DefaultMaxRetries)
 			if err != nil {
 				fmt.Printf("Failed to register room: %v\n", err)
 				fmt.Printf("Starting in direct connection mode\n")

@@ -9,6 +9,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"keykammer/internal/config"
 	"keykammer/internal/logging"
 	pb "keykammer/proto"
 )
@@ -167,7 +168,7 @@ func addChatMessage(username, message string) {
 		defer messageMutex.Unlock()
 		
 		// Check if we need to trim chat history
-		if messageCount >= MaxChatHistory {
+		if messageCount >= config.MaxChatHistory {
 			// Clear the chat view and reset counter
 			chatView.Clear()
 			messageCount = 0

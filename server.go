@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"keykammer/internal/config"
 	"keykammer/internal/logging"
 	pb "keykammer/proto"
 )
@@ -117,7 +118,7 @@ func (s *server) Chat(stream pb.KeykammerService_ChatServer) error {
 		if remainingUsers == 0 {
 			if s.discoveryURL != "" {
 				go func() {
-					err := deleteRoomFromDiscoveryWithRetry(s.roomID, s.discoveryURL, DefaultMaxRetries)
+					err := deleteRoomFromDiscoveryWithRetry(s.roomID, s.discoveryURL, config.DefaultMaxRetries)
 					if err != nil {
 						fmt.Printf("Failed to clean up empty room from discovery: %v\n", err)
 					} else {
@@ -271,7 +272,7 @@ func (s *server) JoinRoom(ctx context.Context, req *pb.JoinRequest) (*pb.JoinRes
 
 		if discoveryURL != "" {
 			go func() {
-				err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, DefaultMaxRetries)
+				err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, config.DefaultMaxRetries)
 				if err != nil {
 					fmt.Printf("Room full but failed to delete from discovery: %v\n", err)
 				} else {
@@ -564,7 +565,7 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 	// When TUI exits (user quit), clean up the room from discovery server
 	fmt.Printf("Server owner quit, cleaning up...\n")
 	if discoveryURL != "" {
-		err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, DefaultMaxRetries)
+		err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, config.DefaultMaxRetries)
 		if err != nil {
 			fmt.Printf("Failed to delete room from discovery: %v\n", err)
 		} else {

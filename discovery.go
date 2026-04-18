@@ -11,6 +11,7 @@ import (
 	"sync"
 	"time"
 
+	"keykammer/internal/config"
 	"keykammer/internal/logging"
 )
 
@@ -38,7 +39,7 @@ type DiscoveryResponse struct {
 }
 
 // Global discovery status tracking
-var currentDiscoveryStatus DiscoveryStatus = DiscoveryUnknown
+var currentDiscoveryStatus config.DiscoveryStatus = config.DiscoveryUnknown
 
 // In-memory room storage for discovery server mode
 var (
@@ -47,12 +48,12 @@ var (
 )
 
 // getDiscoveryStatus returns the current discovery server status
-func getDiscoveryStatus() DiscoveryStatus {
+func getDiscoveryStatus() config.DiscoveryStatus {
 	return currentDiscoveryStatus
 }
 
 // setDiscoveryStatus updates the current discovery server status
-func setDiscoveryStatus(status DiscoveryStatus) {
+func setDiscoveryStatus(status config.DiscoveryStatus) {
 	currentDiscoveryStatus = status
 }
 
@@ -60,11 +61,11 @@ func setDiscoveryStatus(status DiscoveryStatus) {
 func isDiscoveryServerAvailable(discoveryURL string) bool {
 	err := checkDiscoveryHealth(discoveryURL)
 	if err == nil {
-		setDiscoveryStatus(DiscoveryConnected)
+		setDiscoveryStatus(config.DiscoveryConnected)
 		return true
 	}
 
-	setDiscoveryStatus(DiscoveryDisconnected)
+	setDiscoveryStatus(config.DiscoveryDisconnected)
 	return false
 }
 
@@ -92,7 +93,7 @@ func init() {
 	
 	discoveryHTTPClient = &http.Client{
 		Transport: transport,
-		Timeout:   time.Duration(DiscoveryTimeout) * time.Second,
+		Timeout:   time.Duration(config.DiscoveryTimeout) * time.Second,
 	}
 }
 
@@ -126,7 +127,7 @@ func registerRoom(discoveryURL, roomID, serverAddr string, maxUsers int) error {
 		return ConfigError("failed to serialize room registration", err)
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(DiscoveryTimeout)*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.DiscoveryTimeout)*time.Second)
 	defer cancel()
 
 	req, err := http.NewRequestWithContext(ctx, "POST", discoveryURL+"/api/rooms", bytes.NewBuffer(jsonData))
@@ -137,17 +138,17 @@ func registerRoom(discoveryURL, roomID, serverAddr string, maxUsers int) error {
 
 	resp, err := client.Do(req)
 	if err != nil {
-		setDiscoveryStatus(DiscoveryDisconnected)
+		setDiscoveryStatus(config.DiscoveryDisconnected)
 		return NetworkError("failed to register room with discovery server", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		setDiscoveryStatus(DiscoveryDisconnected)
+		setDiscoveryStatus(config.DiscoveryDisconnected)
 		return DiscoveryError(fmt.Sprintf("registration failed with HTTP status %d", resp.StatusCode), nil)
 	}
 
-	setDiscoveryStatus(DiscoveryRoomListed)
+	setDiscoveryStatus(config.DiscoveryRoomListed)
 	logging.Debug("Room registered successfully with discovery server")
 	return nil
 }
@@ -213,7 +214,7 @@ func getPublicIP() (string, error) {
 }
 
 // registerWithDiscovery registers a new room with the discovery server using KeyInfo
-func registerWithDiscovery(keyInfo *KeyInfo, discoveryURL string, port int, maxUsers int) error {
+func registerWithDiscovery(keyInfo *config.KeyInfo, discoveryURL string, port int, maxUsers int) error {
 	// Get public IP address for internet-wide server registration
 	publicIP, err := getPublicIP()
 	if err != nil {
@@ -274,7 +275,7 @@ func deleteRoomFromDiscovery(roomID, discoveryURL string) error {
 		return fmt.Errorf("deletion failed with status: %d", resp.StatusCode)
 	}
 
-	setDiscoveryStatus(DiscoveryRoomDeleted)
+	setDiscoveryStatus(config.DiscoveryRoomDeleted)
 	// Room deleted successfully - no output to avoid TUI corruption
 	return nil
 }
@@ -301,7 +302,7 @@ func retryDiscoveryOperation(operation func() error, maxRetries int) error {
 
 		lastErr = err
 		if attempt < maxRetries {
-			delay := time.Duration(DiscoveryRetryDelay*(1<<attempt)) * time.Second
+			delay := time.Duration(config.DiscoveryRetryDelay*(1<<attempt)) * time.Second
 			// Retry silently for privacy
 			time.Sleep(delay)
 		}
@@ -340,7 +341,7 @@ func checkDiscoveryHealth(discoveryURL string) error {
 }
 
 // registerWithDiscoveryWithRetry registers a room with retry logic
-func registerWithDiscoveryWithRetry(keyInfo *KeyInfo, discoveryURL string, port int, maxUsers int, maxRetries int) error {
+func registerWithDiscoveryWithRetry(keyInfo *config.KeyInfo, discoveryURL string, port int, maxUsers int, maxRetries int) error {
 	return retryDiscoveryOperation(func() error {
 		return registerWithDiscovery(keyInfo, discoveryURL, port, maxUsers)
 	}, maxRetries)
