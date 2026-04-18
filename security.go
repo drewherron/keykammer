@@ -3,6 +3,8 @@ package main
 import (
 	"sync"
 	"time"
+
+	"keykammer/internal/errors"
 )
 
 // Rate limiting for security
@@ -79,25 +81,25 @@ func secureRoomID(roomID string) string {
 // Security validation functions
 func validateRoomID(roomID string) error {
 	if len(roomID) < 16 {
-		return ValidationError("room ID too short", nil)
+		return errors.ValidationError("room ID too short", nil)
 	}
 	if len(roomID) > 128 {
-		return ValidationError("room ID too long", nil)
+		return errors.ValidationError("room ID too long", nil)
 	}
 	return nil
 }
 
 func validateUsernameSecure(username string) error {
 	if len(username) == 0 {
-		return ValidationError("username cannot be empty", nil)
+		return errors.ValidationError("username cannot be empty", nil)
 	}
 	if len(username) > MaxUsernameLength {
-		return ValidationError("username too long", nil)
+		return errors.ValidationError("username too long", nil)
 	}
 	// Check for control characters
 	for _, r := range username {
 		if r < 32 || r == 127 {
-			return ValidationError("username contains invalid characters", nil)
+			return errors.ValidationError("username contains invalid characters", nil)
 		}
 	}
 	return nil

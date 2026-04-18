@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"keykammer/internal/config"
+	"keykammer/internal/errors"
 	"keykammer/internal/logging"
 )
 
@@ -105,7 +106,7 @@ func createDiscoveryClient() *http.Client {
 // registerRoom registers a new room with the discovery server
 func registerRoom(discoveryURL, roomID, serverAddr string, maxUsers int) error {
 	// Validate inputs
-	if err := validateRequired(map[string]string{
+	if err := errors.ValidateRequired(map[string]string{
 		"discoveryURL": discoveryURL,
 		"roomID":       roomID,
 		"serverAddr":   serverAddr,
@@ -124,7 +125,7 @@ func registerRoom(discoveryURL, roomID, serverAddr string, maxUsers int) error {
 
 	jsonData, err := json.Marshal(registration)
 	if err != nil {
-		return ConfigError("failed to serialize room registration", err)
+		return errors.ConfigError("failed to serialize room registration", err)
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(config.DiscoveryTimeout)*time.Second)
@@ -132,20 +133,20 @@ func registerRoom(discoveryURL, roomID, serverAddr string, maxUsers int) error {
 
 	req, err := http.NewRequestWithContext(ctx, "POST", discoveryURL+"/api/rooms", bytes.NewBuffer(jsonData))
 	if err != nil {
-		return NetworkError("failed to create registration request", err)
+		return errors.NetworkError("failed to create registration request", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	resp, err := client.Do(req)
 	if err != nil {
 		setDiscoveryStatus(config.DiscoveryDisconnected)
-		return NetworkError("failed to register room with discovery server", err)
+		return errors.NetworkError("failed to register room with discovery server", err)
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
 		setDiscoveryStatus(config.DiscoveryDisconnected)
-		return DiscoveryError(fmt.Sprintf("registration failed with HTTP status %d", resp.StatusCode), nil)
+		return errors.DiscoveryError(fmt.Sprintf("registration failed with HTTP status %d", resp.StatusCode), nil)
 	}
 
 	setDiscoveryStatus(config.DiscoveryRoomListed)

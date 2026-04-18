@@ -1,4 +1,4 @@
-package main
+package errors
 
 import (
 	"context"
@@ -235,8 +235,8 @@ func safeExecute(fn func() error) (err error) {
 	return fn()
 }
 
-// validateRequired validates that required fields are not empty
-func validateRequired(fields map[string]string) error {
+// ValidateRequired validates that required fields are not empty
+func ValidateRequired(fields map[string]string) error {
 	for name, value := range fields {
 		if value == "" {
 			return ValidationError(fmt.Sprintf("required field '%s' is empty", name), nil)

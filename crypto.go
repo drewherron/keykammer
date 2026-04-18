@@ -12,6 +12,7 @@ import (
 
 	"golang.org/x/crypto/hkdf"
 	"keykammer/internal/config"
+	"keykammer/internal/errors"
 	pb "keykammer/proto"
 )
 
@@ -19,7 +20,7 @@ import (
 func deriveEncryptionKey(fileContent []byte, password string) ([]byte, error) {
 	// Validate inputs
 	if len(fileContent) == 0 {
-		return nil, ValidationError("file content cannot be empty for key derivation", nil)
+		return nil, errors.ValidationError("file content cannot be empty for key derivation", nil)
 	}
 	
 	salt := []byte(config.KeyDerivationSalt)
@@ -33,7 +34,7 @@ func deriveEncryptionKey(fileContent []byte, password string) ([]byte, error) {
 	
 	_, err := io.ReadFull(hkdf, key)
 	if err != nil {
-		return nil, CryptoError("failed to derive encryption key using HKDF", err)
+		return nil, errors.CryptoError("failed to derive encryption key using HKDF", err)
 	}
 	
 	return key, nil
@@ -80,26 +81,26 @@ func deriveKeyInfoLegacy(fileContent []byte, password string) (*config.KeyInfo, 
 func encrypt(plaintext []byte, key []byte) ([]byte, error) {
 	// Validate key size
 	if len(key) != config.AESKeySize {
-		return nil, ValidationError(
+		return nil, errors.ValidationError(
 			fmt.Sprintf("invalid key size: %d bytes (expected %d)", len(key), config.AESKeySize), nil)
 	}
 	
 	// Create AES cipher
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, CryptoError("failed to create AES cipher", err)
+		return nil, errors.CryptoError("failed to create AES cipher", err)
 	}
 	
 	// Create GCM mode
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, CryptoError("failed to create GCM mode", err)
+		return nil, errors.CryptoError("failed to create GCM mode", err)
 	}
 	
 	// Generate random nonce
 	nonce := make([]byte, gcm.NonceSize())
 	if _, err := io.ReadFull(rand.Reader, nonce); err != nil {
-		return nil, CryptoError("failed to generate secure nonce", err)
+		return nil, errors.CryptoError("failed to generate secure nonce", err)
 	}
 	
 	// Encrypt and authenticate
@@ -112,26 +113,26 @@ func encrypt(plaintext []byte, key []byte) ([]byte, error) {
 func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 	// Validate key size
 	if len(key) != config.AESKeySize {
-		return nil, ValidationError(
+		return nil, errors.ValidationError(
 			fmt.Sprintf("invalid key size: %d bytes (expected %d)", len(key), config.AESKeySize), nil)
 	}
 	
 	// Create AES cipher
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		return nil, CryptoError("failed to create AES cipher", err)
+		return nil, errors.CryptoError("failed to create AES cipher", err)
 	}
 	
 	// Create GCM mode
 	gcm, err := cipher.NewGCM(block)
 	if err != nil {
-		return nil, CryptoError("failed to create GCM mode", err)
+		return nil, errors.CryptoError("failed to create GCM mode", err)
 	}
 	
 	// Check minimum ciphertext length
 	nonceSize := gcm.NonceSize()
 	if len(ciphertext) < nonceSize {
-		return nil, ValidationError(
+		return nil, errors.ValidationError(
 			fmt.Sprintf("ciphertext too short: %d bytes (minimum %d)", len(ciphertext), nonceSize), nil)
 	}
 	
@@ -142,7 +143,7 @@ func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 	// Decrypt and verify
 	plaintext, err := gcm.Open(nil, nonce, ciphertext, nil)
 	if err != nil {
-		return nil, CryptoError("decryption failed - invalid key or corrupted data", err)
+		return nil, errors.CryptoError("decryption failed - invalid key or corrupted data", err)
 	}
 	
 	return plaintext, nil
@@ -151,7 +152,7 @@ func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 // createEncryptedMessage creates a ChatMessage with encrypted content
 func createEncryptedMessage(roomID, username, content string, key []byte) (*pb.ChatMessage, error) {
 	// Validate inputs
-	if err := validateRequired(map[string]string{
+	if err := errors.ValidateRequired(map[string]string{
 		"roomID":   roomID,
 		"username": username,
 	}); err != nil {
@@ -161,7 +162,7 @@ func createEncryptedMessage(roomID, username, content string, key []byte) (*pb.C
 	// Encrypt the content
 	encryptedContent, err := encrypt([]byte(content), key)
 	if err != nil {
-		return nil, CryptoError("failed to encrypt message content", err)
+		return nil, errors.CryptoError("failed to encrypt message content", err)
 	}
 	
 	// Create the message
@@ -179,7 +180,7 @@ func createEncryptedMessage(roomID, username, content string, key []byte) (*pb.C
 func decryptMessageContent(msg *pb.ChatMessage, key []byte) (string, error) {
 	// Validate message
 	if msg == nil {
-		return "", ValidationError("message cannot be nil", nil)
+		return "", errors.ValidationError("message cannot be nil", nil)
 	}
 	
 	// Handle empty content (like initial validation messages)
@@ -190,7 +191,7 @@ func decryptMessageContent(msg *pb.ChatMessage, key []byte) (string, error) {
 	// Decrypt the content
 	plaintext, err := decrypt(msg.EncryptedContent, key)
 	if err != nil {
-		return "", CryptoError("failed to decrypt message content", err)
+		return "", errors.CryptoError("failed to decrypt message content", err)
 	}
 	
 	return string(plaintext), nil
