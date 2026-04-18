@@ -1,4 +1,4 @@
-package main
+package logging
 
 import (
 	"fmt"
@@ -13,7 +13,7 @@ type LogLevel int
 const (
 	LogLevelSilent LogLevel = iota
 	LogLevelError
-	LogLevelWarn  
+	LogLevelWarn
 	LogLevelInfo
 	LogLevelDebug
 )
@@ -39,18 +39,18 @@ func init() {
 			currentLogLevel = LogLevelDebug
 		}
 	}
-	
+
 	// Check if colors should be disabled
 	if os.Getenv("NO_COLOR") != "" || os.Getenv("KEYKAMMER_NO_COLOR") != "" {
 		enableColors = false
 	}
-	
+
 	// Disable standard log prefixes for cleaner output
 	log.SetFlags(0)
 }
 
 // Production logging functions
-func logError(format string, args ...interface{}) {
+func Error(format string, args ...interface{}) {
 	if currentLogLevel >= LogLevelError {
 		if enableColors {
 			fmt.Printf("\033[31m[ERROR]\033[0m "+format+"\n", args...)
@@ -60,7 +60,7 @@ func logError(format string, args ...interface{}) {
 	}
 }
 
-func logWarn(format string, args ...interface{}) {
+func Warn(format string, args ...interface{}) {
 	if currentLogLevel >= LogLevelWarn {
 		if enableColors {
 			fmt.Printf("\033[33m[WARN]\033[0m "+format+"\n", args...)
@@ -70,7 +70,7 @@ func logWarn(format string, args ...interface{}) {
 	}
 }
 
-func logInfo(format string, args ...interface{}) {
+func Info(format string, args ...interface{}) {
 	if currentLogLevel >= LogLevelInfo {
 		if enableColors {
 			fmt.Printf("\033[36m[INFO]\033[0m "+format+"\n", args...)
@@ -80,7 +80,7 @@ func logInfo(format string, args ...interface{}) {
 	}
 }
 
-func logDebug(format string, args ...interface{}) {
+func Debug(format string, args ...interface{}) {
 	if currentLogLevel >= LogLevelDebug {
 		if enableColors {
 			fmt.Printf("\033[35m[DEBUG]\033[0m "+format+"\n", args...)
@@ -91,11 +91,11 @@ func logDebug(format string, args ...interface{}) {
 }
 
 // User-facing messages (always shown regardless of log level)
-func userInfo(format string, args ...interface{}) {
+func UserInfo(format string, args ...interface{}) {
 	fmt.Printf(format+"\n", args...)
 }
 
-func userError(format string, args ...interface{}) {
+func UserError(format string, args ...interface{}) {
 	if enableColors {
 		fmt.Printf("\033[31m"+format+"\033[0m\n", args...)
 	} else {
@@ -103,7 +103,7 @@ func userError(format string, args ...interface{}) {
 	}
 }
 
-func userSuccess(format string, args ...interface{}) {
+func UserSuccess(format string, args ...interface{}) {
 	if enableColors {
 		fmt.Printf("\033[32m"+format+"\033[0m\n", args...)
 	} else {

@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"keykammer/internal/logging"
 	pb "keykammer/proto"
 )
 
@@ -468,7 +469,7 @@ func registerClientCleanup(cleanup func()) {
 	}
 
 	RegisterShutdownCallback(func() error {
-		logDebug("Cleaning up client resources")
+		logging.Debug("Cleaning up client resources")
 		cleanup()
 		return nil
 	})

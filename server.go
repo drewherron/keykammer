@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"keykammer/internal/logging"
 	pb "keykammer/proto"
 )
 
@@ -460,10 +461,10 @@ func runServer(roomID string, port int, maxUsers int) {
 	// Register graceful shutdown for the server
 	registerServerShutdown(grpcServer)
 
-	logInfo("Server ready and listening on :%d", port)
+	logging.Info("Server ready and listening on :%d", port)
 	if err := grpcServer.Serve(lis); err != nil {
 		if !IsShuttingDown() {
-			logError("Failed to serve: %v", err)
+			logging.Error("Failed to serve: %v", err)
 			os.Exit(1)
 		}
 	}
@@ -511,17 +512,17 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		// Register UPnP cleanup if available
 		if upnpMapping != nil {
 			RegisterShutdownCallback(func() error {
-				logDebug("Cleaning up UPnP port forwarding")
+				logging.Debug("Cleaning up UPnP port forwarding")
 				return removeUPnPPortForwarding(upnpMapping)
 			})
 		}
 
-		logInfo("Server ready and listening on :%d", port)
+		logging.Info("Server ready and listening on :%d", port)
 		serverReady <- true
 
 		if err := grpcServer.Serve(lis); err != nil {
 			if !IsShuttingDown() {
-				logError("Failed to serve: %v", err)
+				logging.Error("Failed to serve: %v", err)
 				os.Exit(1)
 			}
 		}
@@ -586,7 +587,7 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 // registerServerShutdown registers cleanup for gRPC server
 func registerServerShutdown(server interface{}) {
 	RegisterShutdownCallback(func() error {
-		logDebug("Shutting down gRPC server")
+		logging.Debug("Shutting down gRPC server")
 
 		// Type assertion for different server types
 		switch s := server.(type) {
@@ -601,9 +602,9 @@ func registerServerShutdown(server interface{}) {
 			// Wait up to 5 seconds for graceful stop
 			select {
 			case <-done:
-				logDebug("gRPC server stopped gracefully")
+				logging.Debug("gRPC server stopped gracefully")
 			case <-time.After(5 * time.Second):
-				logWarn("gRPC server graceful stop timed out")
+				logging.Warn("gRPC server graceful stop timed out")
 				if forceStop, ok := s.(interface{ Stop() }); ok {
 					forceStop.Stop()
 				}

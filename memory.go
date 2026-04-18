@@ -5,6 +5,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
+
+	"keykammer/internal/logging"
 )
 
 // Memory optimization constants
@@ -108,15 +110,15 @@ func startMemoryMonitor() {
 		for range ticker.C {
 			memUsageMB, err := getCurrentMemoryUsage()
 			if err != nil {
-				logError("Failed to get memory usage: %v", err)
+				logging.Error("Failed to get memory usage: %v", err)
 				continue
 			}
 			
-			logDebug("Current memory usage: %d MB", memUsageMB)
+			logging.Debug("Current memory usage: %d MB", memUsageMB)
 			
 			// Trigger garbage collection if memory usage is high
 			if memUsageMB > MaxMemoryUsageMB {
-				logDebug("High memory usage detected (%d MB), triggering GC", memUsageMB)
+				logging.Debug("High memory usage detected (%d MB), triggering GC", memUsageMB)
 				runtime.GC()
 				
 				// Force release unused memory back to OS
@@ -124,7 +126,7 @@ func startMemoryMonitor() {
 				
 				// Log memory usage after GC
 				memUsageAfterMB, _ := getCurrentMemoryUsage()
-				logDebug("Memory usage after GC: %d MB", memUsageAfterMB)
+				logging.Debug("Memory usage after GC: %d MB", memUsageAfterMB)
 			}
 		}
 	}()
@@ -138,7 +140,7 @@ func optimizeForProduction() {
 	// Set initial heap size to reduce early garbage collection pressure
 	debug := os.Getenv("KEYKAMMER_DEBUG_GC")
 	if debug == "1" || debug == "true" {
-		logDebug("GC optimization enabled for production")
+		logging.Debug("GC optimization enabled for production")
 	}
 	
 	// Start memory monitoring
@@ -164,7 +166,7 @@ func cleanupResources() {
 	runtime.GC()
 	runtime.GC() // Call twice to ensure full cleanup
 	
-	logDebug("Resource cleanup completed")
+	logging.Debug("Resource cleanup completed")
 }
 
 // Efficient string operations for reducing allocations

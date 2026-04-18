@@ -9,6 +9,7 @@ import (
 
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
+	"keykammer/internal/logging"
 	pb "keykammer/proto"
 )
 
@@ -363,7 +364,7 @@ func displayMessage(username, message string) {
 // registerTUICleanup registers cleanup for TUI components
 func registerTUICleanup() {
 	RegisterShutdownCallback(func() error {
-		logDebug("Shutting down TUI")
+		logging.Debug("Shutting down TUI")
 
 		// Cleanup TUI components if they exist
 		if app != nil {

@@ -10,6 +10,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"keykammer/internal/logging"
 )
 
 // Discovery server data structures
@@ -146,7 +148,7 @@ func registerRoom(discoveryURL, roomID, serverAddr string, maxUsers int) error {
 	}
 
 	setDiscoveryStatus(DiscoveryRoomListed)
-	logDebug("Room registered successfully with discovery server")
+	logging.Debug("Room registered successfully with discovery server")
 	return nil
 }
 
@@ -438,7 +440,7 @@ func runDiscoveryServer(port int) error {
 
 	// Register graceful shutdown for HTTP server
 	RegisterShutdownCallback(func() error {
-		logDebug("Shutting down discovery HTTP server")
+		logging.Debug("Shutting down discovery HTTP server")
 		
 		// Create context with timeout for shutdown
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -447,12 +449,12 @@ func runDiscoveryServer(port int) error {
 		return server.Shutdown(ctx)
 	})
 
-	logInfo("Discovery server listening on %s", addr)
-	logInfo("Endpoints:")
-	logInfo("  GET  /health        - Health check")
-	logInfo("  POST /api/rooms     - Register room")
-	logInfo("  GET  /api/rooms/{id} - Lookup room")
-	logInfo("  DELETE /api/rooms/{id} - Delete room")
+	logging.Info("Discovery server listening on %s", addr)
+	logging.Info("Endpoints:")
+	logging.Info("  GET  /health        - Health check")
+	logging.Info("  POST /api/rooms     - Register room")
+	logging.Info("  GET  /api/rooms/{id} - Lookup room")
+	logging.Info("  DELETE /api/rooms/{id} - Delete room")
 
 	err := server.ListenAndServe()
 	if err != nil && err != http.ErrServerClosed {
@@ -590,14 +592,14 @@ func registerDiscoveryCleanup(roomID, discoveryURL string) {
 	}
 
 	RegisterShutdownCallback(func() error {
-		logDebug("Cleaning up discovery server registration")
+		logging.Debug("Cleaning up discovery server registration")
 
 		// Use shorter timeout for discovery cleanup during shutdown
 		err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, 1)
 		if err != nil {
-			logWarn("Failed to cleanup discovery registration: %v", err)
+			logging.Warn("Failed to cleanup discovery registration: %v", err)
 		} else {
-			logDebug("Discovery registration cleaned up successfully")
+			logging.Debug("Discovery registration cleaned up successfully")
 		}
 		return nil // Don't fail shutdown even if discovery cleanup fails
 	})

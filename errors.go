@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"runtime"
 	"time"
+
+	"keykammer/internal/logging"
 )
 
 // KeykammerError represents application-specific errors with context
@@ -139,7 +141,7 @@ func retryWithBackoff(ctx context.Context, maxRetries int, initialDelay time.Dur
 	for attempt := 0; attempt <= maxRetries; attempt++ {
 		if attempt > 0 {
 			delay := time.Duration(attempt) * initialDelay
-			logDebug("Retrying operation in %v (attempt %d/%d)", delay, attempt+1, maxRetries+1)
+			logging.Debug("Retrying operation in %v (attempt %d/%d)", delay, attempt+1, maxRetries+1)
 			
 			select {
 			case <-time.After(delay):
@@ -190,17 +192,17 @@ func logErrorWithContext(err error, context string) {
 	var keykammerErr *KeykammerError
 	if fmt.Errorf("%w", err) != nil {
 		if keykammerErr != nil {
-			logError("[%s] %s (context: %s, file: %s:%d)", 
+			logging.Error("[%s] %s (context: %s, file: %s:%d)", 
 				keykammerErr.Code, keykammerErr.Message, context, 
 				keykammerErr.File, keykammerErr.Line)
 			if keykammerErr.Cause != nil {
-				logDebug("Caused by: %v", keykammerErr.Cause)
+				logging.Debug("Caused by: %v", keykammerErr.Cause)
 			}
 		} else {
-			logError("%v (context: %s)", err, context)
+			logging.Error("%v (context: %s)", err, context)
 		}
 	} else {
-		logError("%v (context: %s)", err, context)
+		logging.Error("%v (context: %s)", err, context)
 	}
 }
 
@@ -213,8 +215,8 @@ func recoverFromPanic() error {
 		stack := make([]byte, 4096)
 		length := runtime.Stack(stack, false)
 		
-		logError("Panic recovered: %v", r)
-		logDebug("Stack trace:\n%s", stack[:length])
+		logging.Error("Panic recovered: %v", r)
+		logging.Debug("Stack trace:\n%s", stack[:length])
 		
 		return newKeykammerError(ErrCodeServer, 
 			fmt.Sprintf("panic recovered: %v", r), nil)

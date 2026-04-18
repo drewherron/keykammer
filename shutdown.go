@@ -7,6 +7,8 @@ import (
 	"sync"
 	"syscall"
 	"time"
+
+	"keykammer/internal/logging"
 )
 
 // GracefulShutdown manages coordinated shutdown of all application components
@@ -57,16 +59,16 @@ func StartGracefulShutdownHandler() {
 		)
 		
 		sig := <-sigChan
-		logInfo("Received shutdown signal: %v", sig)
+		logging.Info("Received shutdown signal: %v", sig)
 		
 		// Perform graceful shutdown
 		err := performGracefulShutdown()
 		if err != nil {
-			logError("Error during graceful shutdown: %v", err)
+			logging.Error("Error during graceful shutdown: %v", err)
 			os.Exit(1)
 		}
 		
-		logInfo("Graceful shutdown completed successfully")
+		logging.Info("Graceful shutdown completed successfully")
 		os.Exit(0)
 	}()
 }
@@ -88,20 +90,20 @@ func performGracefulShutdown() error {
 	go func() {
 		defer func() {
 			if r := recover(); r != nil {
-				logError("Panic during shutdown: %v", r)
+				logging.Error("Panic during shutdown: %v", r)
 				done <- nil // Continue with shutdown even if panic occurs
 			}
 		}()
 		
-		logInfo("Executing %d shutdown callbacks", len(callbacks))
+		logging.Info("Executing %d shutdown callbacks", len(callbacks))
 		
 		// Execute callbacks in reverse order (LIFO)
 		for i := len(callbacks) - 1; i >= 0; i-- {
 			callback := callbacks[i]
 			if callback != nil {
-				logDebug("Executing shutdown callback %d", len(callbacks)-i)
+				logging.Debug("Executing shutdown callback %d", len(callbacks)-i)
 				if err := callback(); err != nil {
-					logWarn("Shutdown callback failed: %v", err)
+					logging.Warn("Shutdown callback failed: %v", err)
 					// Continue with other callbacks even if one fails
 				}
 			}
@@ -118,7 +120,7 @@ func performGracefulShutdown() error {
 	case err := <-done:
 		return err
 	case <-ctx.Done():
-		logWarn("Graceful shutdown timed out after %v, forcing exit", shutdownManager.timeout)
+		logging.Warn("Graceful shutdown timed out after %v, forcing exit", shutdownManager.timeout)
 		return ctx.Err()
 	}
 }
