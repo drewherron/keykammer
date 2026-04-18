@@ -582,3 +582,23 @@ func handleRoomDelete(w http.ResponseWriter, roomID string) {
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 }
+
+// registerDiscoveryCleanup registers cleanup for discovery server registration
+func registerDiscoveryCleanup(roomID, discoveryURL string) {
+	if discoveryURL == "" {
+		return
+	}
+
+	RegisterShutdownCallback(func() error {
+		logDebug("Cleaning up discovery server registration")
+
+		// Use shorter timeout for discovery cleanup during shutdown
+		err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, 1)
+		if err != nil {
+			logWarn("Failed to cleanup discovery registration: %v", err)
+		} else {
+			logDebug("Discovery registration cleaned up successfully")
+		}
+		return nil // Don't fail shutdown even if discovery cleanup fails
+	})
+}

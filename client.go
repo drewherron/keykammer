@@ -460,3 +460,16 @@ func validateUsername(username string) error {
 	}
 	return nil
 }
+
+// registerClientCleanup registers cleanup for client connections
+func registerClientCleanup(cleanup func()) {
+	if cleanup == nil {
+		return
+	}
+
+	RegisterShutdownCallback(func() error {
+		logDebug("Cleaning up client resources")
+		cleanup()
+		return nil
+	})
+}

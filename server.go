@@ -582,3 +582,33 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 	// Allow any pending cleanup to complete
 	time.Sleep(500 * time.Millisecond)
 }
+
+// registerServerShutdown registers cleanup for gRPC server
+func registerServerShutdown(server interface{}) {
+	RegisterShutdownCallback(func() error {
+		logDebug("Shutting down gRPC server")
+
+		// Type assertion for different server types
+		switch s := server.(type) {
+		case interface{ GracefulStop() }:
+			// Give graceful stop a chance
+			done := make(chan struct{})
+			go func() {
+				s.GracefulStop()
+				close(done)
+			}()
+
+			// Wait up to 5 seconds for graceful stop
+			select {
+			case <-done:
+				logDebug("gRPC server stopped gracefully")
+			case <-time.After(5 * time.Second):
+				logWarn("gRPC server graceful stop timed out")
+				if forceStop, ok := s.(interface{ Stop() }); ok {
+					forceStop.Stop()
+				}
+			}
+		}
+		return nil
+	})
+}

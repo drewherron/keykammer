@@ -359,3 +359,16 @@ func displayMessage(username, message string) {
 	// Legacy function - now redirects to TUI instead of stdout to prevent corruption
 	addChatMessage(username, message)
 }
+
+// registerTUICleanup registers cleanup for TUI components
+func registerTUICleanup() {
+	RegisterShutdownCallback(func() error {
+		logDebug("Shutting down TUI")
+
+		// Cleanup TUI components if they exist
+		if app != nil {
+			app.Stop()
+		}
+		return nil
+	})
+}
