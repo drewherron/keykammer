@@ -14,6 +14,7 @@ import (
 	"keykammer/internal/logging"
 	"keykammer/internal/memory"
 	"keykammer/internal/shutdown"
+	"keykammer/internal/upnp"
 	pb "keykammer/proto"
 )
 
@@ -478,7 +479,7 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 	fmt.Printf("Starting server on port %d for room %s\n", port, roomID[:16]+"...")
 
 	// Variable to store UPnP mapping for cleanup
-	var upnpMapping *UPnPMapping
+	var upnpMapping *upnp.Mapping
 
 	// Start server in background goroutine
 	serverReady := make(chan bool, 1)
@@ -490,8 +491,8 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		}
 
 		// Attempt UPnP port forwarding setup
-		if checkUPnPAvailability() {
-			upnpMapping, err = setupUPnPPortForwarding(port, "Keykammer Chat Server")
+		if upnp.CheckAvailability() {
+			upnpMapping, err = upnp.SetupPortForwarding(port, "Keykammer Chat Server")
 			if err != nil {
 				fmt.Printf("UPnP setup failed: %v\n", err)
 				fmt.Printf("Manual port forwarding may be required for external access\n")
@@ -516,7 +517,7 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		if upnpMapping != nil {
 			shutdown.RegisterShutdownCallback(func() error {
 				logging.Debug("Cleaning up UPnP port forwarding")
-				return removeUPnPPortForwarding(upnpMapping)
+				return upnp.RemovePortForwarding(upnpMapping)
 			})
 		}
 

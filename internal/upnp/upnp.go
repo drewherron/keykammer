@@ -1,4 +1,4 @@
-package main
+package upnp
 
 import (
 	"fmt"
@@ -8,8 +8,8 @@ import (
 	"github.com/huin/goupnp/dcps/internetgateway2"
 )
 
-// UPnPMapping represents an active UPnP port forwarding mapping
-type UPnPMapping struct {
+// Mapping represents an active UPnP port forwarding mapping
+type Mapping struct {
 	ExternalPort int
 	InternalPort int
 	InternalIP   string
@@ -18,8 +18,8 @@ type UPnPMapping struct {
 	client       *internetgateway2.WANIPConnection1
 }
 
-// setupUPnPPortForwarding attempts to create a UPnP port forwarding rule
-func setupUPnPPortForwarding(port int, description string) (*UPnPMapping, error) {
+// SetupPortForwarding attempts to create a UPnP port forwarding rule
+func SetupPortForwarding(port int, description string) (*Mapping, error) {
 	fmt.Printf("Attempting UPnP port forwarding setup for port %d...\n", port)
 	
 	// Discover UPnP devices
@@ -60,7 +60,7 @@ func setupUPnPPortForwarding(port int, description string) (*UPnPMapping, error)
 	fmt.Printf("✓ UPnP port forwarding enabled: %s:%d -> %s:%d\n", 
 		"external", port, localIP, port)
 	
-	return &UPnPMapping{
+	return &Mapping{
 		ExternalPort: port,
 		InternalPort: port,
 		InternalIP:   localIP,
@@ -70,8 +70,8 @@ func setupUPnPPortForwarding(port int, description string) (*UPnPMapping, error)
 	}, nil
 }
 
-// removeUPnPPortForwarding removes the UPnP port forwarding rule
-func removeUPnPPortForwarding(mapping *UPnPMapping) error {
+// RemovePortForwarding removes the UPnP port forwarding rule
+func RemovePortForwarding(mapping *Mapping) error {
 	if mapping == nil || mapping.client == nil {
 		return nil
 	}
@@ -105,8 +105,8 @@ func getLocalIP() (string, error) {
 	return localAddr.IP.String(), nil
 }
 
-// checkUPnPAvailability tests if UPnP is available on the network
-func checkUPnPAvailability() bool {
+// CheckAvailability tests if UPnP is available on the network
+func CheckAvailability() bool {
 	clients, _, err := internetgateway2.NewWANIPConnection1Clients()
 	if err != nil {
 		return false
@@ -114,8 +114,8 @@ func checkUPnPAvailability() bool {
 	return len(clients) > 0
 }
 
-// refreshUPnPMapping refreshes the lease on an existing mapping
-func refreshUPnPMapping(mapping *UPnPMapping) error {
+// refreshMapping refreshes the lease on an existing mapping
+func refreshMapping(mapping *Mapping) error {
 	if mapping == nil || mapping.client == nil {
 		return fmt.Errorf("invalid mapping")
 	}
