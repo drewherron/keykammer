@@ -1,4 +1,4 @@
-package main
+package chat
 
 import (
 	"bufio"
@@ -16,8 +16,8 @@ import (
 	pb "keykammer/proto"
 )
 
-// runClient handles main client logic for connecting to a server
-func runClient(serverAddr string, roomID string, encryptionKey []byte) {
+// RunClient handles main client logic for connecting to a server
+func RunClient(serverAddr string, roomID string, encryptionKey []byte) {
 	// Username prompt with retry logic for taken usernames
 	var username string
 	maxAttempts := 3
@@ -74,8 +74,8 @@ func runClient(serverAddr string, roomID string, encryptionKey []byte) {
 	fmt.Printf("Failed to connect after %d attempts. Check server status and try again.\n", maxAttempts)
 }
 
-// runClientAsServerOwner is like runClient but for server owners who know the maxUsers
-func runClientAsServerOwner(serverAddr string, roomID string, encryptionKey []byte, maxUsers int) {
+// RunClientAsServerOwner is like RunClient but for server owners who know the maxUsers
+func RunClientAsServerOwner(serverAddr string, roomID string, encryptionKey []byte, maxUsers int) {
 	// Username prompt with retry logic for taken usernames
 	var username string
 	maxAttempts := 3

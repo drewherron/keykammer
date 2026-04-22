@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"net"
 	"os"
@@ -41,17 +39,6 @@ func readFile(path string) ([]byte, error) {
 	return content, nil
 }
 
-// generateClientID creates a unique identifier for each client
-func generateClientID() string {
-	// Generate 8 random bytes (will result in 16 hex characters)
-	bytes := make([]byte, 8)
-	if _, err := rand.Read(bytes); err != nil {
-		// Fallback to timestamp-based ID if random fails
-		return fmt.Sprintf("client_%d", time.Now().UnixNano())
-	}
-	return hex.EncodeToString(bytes)
-}
-
 // isServerRunning checks if a server is running on the specified local port
 func isServerRunning(port int) bool {
 	timeout := time.Second * 2
@@ -63,10 +50,3 @@ func isServerRunning(port int) bool {
 	return true
 }
 
-// formatRoomID formats a room ID as first8...last8 digits (crypto address style)
-func formatRoomID(roomID string) string {
-	if len(roomID) <= 16 {
-		return roomID
-	}
-	return fmt.Sprintf("%s...%s", roomID[:8], roomID[len(roomID)-8:])
-}

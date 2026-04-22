@@ -1,4 +1,4 @@
-package main
+package chat
 
 import (
 	"context"
@@ -475,8 +475,8 @@ func runServer(roomID string, port int, maxUsers int) {
 	}
 }
 
-// runServerWithTUI starts a server in background and then launches TUI for the server owner
-func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byte, discoveryURL string) {
+// RunServerWithTUI starts a server in background and then launches TUI for the server owner
+func RunServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byte, discoveryURL string) {
 	fmt.Printf("Starting server on port %d for room %s\n", port, roomID[:16]+"...")
 
 	// Variable to store UPnP mapping for cleanup
@@ -564,7 +564,7 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 
 	// Connect to our own server as a client to show TUI
 	serverAddr := fmt.Sprintf("localhost:%d", port)
-	runClientAsServerOwner(serverAddr, roomID, encryptionKey, maxUsers)
+	RunClientAsServerOwner(serverAddr, roomID, encryptionKey, maxUsers)
 
 	// When TUI exits (user quit), clean up the room from discovery server
 	fmt.Printf("Server owner quit, cleaning up...\n")

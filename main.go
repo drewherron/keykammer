@@ -6,6 +6,7 @@ import (
 	"os"
 	"strings"
 
+	"keykammer/internal/chat"
 	"keykammer/internal/config"
 	"keykammer/internal/crypto"
 	"keykammer/internal/discovery"
@@ -113,7 +114,7 @@ func main() {
 	if *connectDirect != "" {
 		fmt.Printf("Direct connection mode: %s\n", *connectDirect)
 		fmt.Printf("Bypassing discovery server, connecting directly...\n")
-		runClient(*connectDirect, keyInfo.RoomID, keyInfo.EncryptionKey)
+		chat.RunClient(*connectDirect, keyInfo.RoomID, keyInfo.EncryptionKey)
 		return
 	}
 
@@ -143,11 +144,11 @@ func main() {
 				fmt.Printf("Continuing in direct connection mode\n")
 			}
 
-			runServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey, *discoveryServer)
+			chat.RunServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey, *discoveryServer)
 		} else if existingServerAddr != "" {
 			// Connect to existing room as client
 			fmt.Printf("\nExisting room found! Connecting as client to %s\n", existingServerAddr)
-			runClient(existingServerAddr, keyInfo.RoomID, keyInfo.EncryptionKey)
+			chat.RunClient(existingServerAddr, keyInfo.RoomID, keyInfo.EncryptionKey)
 			return
 		} else {
 			// Register room if lookup fails (new room)
@@ -162,7 +163,7 @@ func main() {
 				fmt.Printf("Starting in direct connection mode\n")
 			}
 
-			runServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey, *discoveryServer)
+			chat.RunServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey, *discoveryServer)
 		}
 	} else {
 		// Discovery server unavailable - fall back to localhost mode
@@ -170,12 +171,12 @@ func main() {
 		// Check for existing local server first
 		if isServerRunning(*port) {
 			fmt.Printf("Found existing server on localhost:%d, connecting as client\n", *port)
-			runClient(fmt.Sprintf("localhost:%d", *port), keyInfo.RoomID, keyInfo.EncryptionKey)
+			chat.RunClient(fmt.Sprintf("localhost:%d", *port), keyInfo.RoomID, keyInfo.EncryptionKey)
 			return
 		}
 
 		// Start new server on localhost
 		fmt.Printf("Starting new server on localhost:%d\n", *port)
-		runServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey, "")
+		chat.RunServerWithTUI(keyInfo.RoomID, *port, keyInfo.MaxUsers, keyInfo.EncryptionKey, "")
 	}
 }
