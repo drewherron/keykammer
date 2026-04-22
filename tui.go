@@ -10,6 +10,7 @@ import (
 	"github.com/gdamore/tcell/v2"
 	"github.com/rivo/tview"
 	"keykammer/internal/config"
+	"keykammer/internal/crypto"
 	"keykammer/internal/logging"
 	"keykammer/internal/shutdown"
 	pb "keykammer/proto"
@@ -291,7 +292,7 @@ func displayChatMessageTUI(msg *pb.ChatMessage, key []byte) {
 	// Decrypt the message content for regular messages
 	var content string
 	if len(msg.EncryptedContent) > 0 {
-		decrypted, err := decryptMessageContent(msg, key)
+		decrypted, err := crypto.DecryptMessageContent(msg, key)
 		if err != nil {
 			content = fmt.Sprintf("[decryption error: %v]", err)
 		} else {

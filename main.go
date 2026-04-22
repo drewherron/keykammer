@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"keykammer/internal/config"
+	"keykammer/internal/crypto"
 	"keykammer/internal/memory"
 	"keykammer/internal/shutdown"
 )
@@ -92,7 +93,7 @@ func main() {
 	}
 
 	// Derive room ID and encryption key from file content
-	keyInfo, err := deriveKeyInfo(fileContent, *password, *size)
+	keyInfo, err := crypto.DeriveKeyInfo(fileContent, *password, *size)
 	if err != nil {
 		fmt.Printf("Error deriving key info: %v\n", err)
 		os.Exit(1)
@@ -131,7 +132,7 @@ func main() {
 			}
 
 			// Fallback to creating new room
-			serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
+			serverAddr := crypto.DeriveLocalServerAddress(fileContent, *password, *port)
 			fmt.Printf("Server will start at: %s\n", serverAddr)
 
 			// Try to register with discovery server (may fail, that's ok)
@@ -151,7 +152,7 @@ func main() {
 			// Register room if lookup fails (new room)
 			fmt.Printf("\nNo existing room found. Creating new room...\n")
 
-			serverAddr := deriveLocalServerAddress(fileContent, *password, *port)
+			serverAddr := crypto.DeriveLocalServerAddress(fileContent, *password, *port)
 			fmt.Printf("Server address: %s\n", serverAddr)
 
 			err = registerWithDiscoveryWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, config.DefaultMaxRetries)

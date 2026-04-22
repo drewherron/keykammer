@@ -1,4 +1,4 @@
-package main
+package crypto
 
 import (
 	"crypto/aes"
@@ -50,15 +50,15 @@ func deriveRoomID(fileContent []byte, password string) string {
 	return hex.EncodeToString(hash[:])
 }
 
-// deriveLocalServerAddress derives a consistent local server address from file content and password
-func deriveLocalServerAddress(fileContent []byte, password string, port int) string {
+// DeriveLocalServerAddress derives a consistent local server address from file content and password
+func DeriveLocalServerAddress(fileContent []byte, password string, port int) string {
 	// For localhost, we use 127.0.0.1 with the specified port
 	// Later this can be extended for distributed/internet-wide addressing
 	return fmt.Sprintf("127.0.0.1:%d", port)
 }
 
-// deriveKeyInfo bundles room ID and encryption key derived from file content
-func deriveKeyInfo(fileContent []byte, password string, maxUsers int) (*config.KeyInfo, error) {
+// DeriveKeyInfo bundles room ID and encryption key derived from file content
+func DeriveKeyInfo(fileContent []byte, password string, maxUsers int) (*config.KeyInfo, error) {
 	roomID := deriveRoomID(fileContent, password)
 	encryptionKey, err := deriveEncryptionKey(fileContent, password)
 	if err != nil {
@@ -72,9 +72,9 @@ func deriveKeyInfo(fileContent []byte, password string, maxUsers int) (*config.K
 	}, nil
 }
 
-// deriveKeyInfoLegacy provides backward compatibility for existing code that doesn't specify maxUsers
-func deriveKeyInfoLegacy(fileContent []byte, password string) (*config.KeyInfo, error) {
-	return deriveKeyInfo(fileContent, password, 2) // Default to 2 users for backward compatibility
+// DeriveKeyInfoLegacy provides backward compatibility for existing code that doesn't specify maxUsers
+func DeriveKeyInfoLegacy(fileContent []byte, password string) (*config.KeyInfo, error) {
+	return DeriveKeyInfo(fileContent, password, 2) // Default to 2 users for backward compatibility
 }
 
 // encrypt encrypts plaintext using AES-256-GCM with the provided key
@@ -149,8 +149,8 @@ func decrypt(ciphertext []byte, key []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
-// createEncryptedMessage creates a ChatMessage with encrypted content
-func createEncryptedMessage(roomID, username, content string, key []byte) (*pb.ChatMessage, error) {
+// CreateEncryptedMessage creates a ChatMessage with encrypted content
+func CreateEncryptedMessage(roomID, username, content string, key []byte) (*pb.ChatMessage, error) {
 	// Validate inputs
 	if err := errors.ValidateRequired(map[string]string{
 		"roomID":   roomID,
@@ -176,8 +176,8 @@ func createEncryptedMessage(roomID, username, content string, key []byte) (*pb.C
 	return msg, nil
 }
 
-// decryptMessageContent decrypts the content of a ChatMessage
-func decryptMessageContent(msg *pb.ChatMessage, key []byte) (string, error) {
+// DecryptMessageContent decrypts the content of a ChatMessage
+func DecryptMessageContent(msg *pb.ChatMessage, key []byte) (string, error) {
 	// Validate message
 	if msg == nil {
 		return "", errors.ValidationError("message cannot be nil", nil)

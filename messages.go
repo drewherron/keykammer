@@ -7,13 +7,14 @@ import (
 	"strings"
 	"time"
 
+	"keykammer/internal/crypto"
 	pb "keykammer/proto"
 )
 
 // sendMessage sends an encrypted chat message through the stream
 func sendMessage(stream pb.KeykammerService_ChatClient, roomID, username, content string, key []byte) error {
 	// Create encrypted message
-	msg, err := createEncryptedMessage(roomID, username, content, key)
+	msg, err := crypto.CreateEncryptedMessage(roomID, username, content, key)
 	if err != nil {
 		return fmt.Errorf("failed to create encrypted message: %v", err)
 	}
@@ -77,7 +78,7 @@ func displayChatMessage(msg *pb.ChatMessage, key []byte) {
 	// Decrypt the message content
 	var content string
 	if len(msg.EncryptedContent) > 0 {
-		decrypted, err := decryptMessageContent(msg, key)
+		decrypted, err := crypto.DecryptMessageContent(msg, key)
 		if err != nil {
 			content = fmt.Sprintf("[decryption error: %v]", err)
 		} else {
