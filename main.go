@@ -8,6 +8,7 @@ import (
 
 	"keykammer/internal/config"
 	"keykammer/internal/crypto"
+	"keykammer/internal/discovery"
 	"keykammer/internal/memory"
 	"keykammer/internal/shutdown"
 )
@@ -53,7 +54,7 @@ func main() {
 	// Handle discovery server mode
 	if *discoveryServerMode {
 		fmt.Printf("Starting in discovery server mode on port %d\n", *port)
-		err := runDiscoveryServer(*port)
+		err := discovery.RunServer(*port)
 		if err != nil {
 			fmt.Printf("Discovery server error: %v\n", err)
 			os.Exit(1)
@@ -120,9 +121,9 @@ func main() {
 	fmt.Printf("Discovery server: %s\n", *discoveryServer)
 	fmt.Printf("Checking discovery server status...\n")
 
-	if checkDiscoveryAndFallback(*discoveryServer, *port) {
+	if discovery.CheckAndFallback(*discoveryServer, *port) {
 		// Discovery server is available - check for existing rooms
-		existingServerAddr, err := lookupRoomInDiscoveryWithRetry(keyInfo.RoomID, *discoveryServer, config.DefaultMaxRetries)
+		existingServerAddr, err := discovery.LookupRoomWithRetry(keyInfo.RoomID, *discoveryServer, config.DefaultMaxRetries)
 		if err != nil {
 			fmt.Printf("Room lookup failed: %v\n", err)
 			if strings.Contains(err.Error(), "timeout") {
@@ -136,7 +137,7 @@ func main() {
 			fmt.Printf("Server will start at: %s\n", serverAddr)
 
 			// Try to register with discovery server (may fail, that's ok)
-			err = registerWithDiscoveryWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, config.DefaultMaxRetries)
+			err = discovery.RegisterWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, config.DefaultMaxRetries)
 			if err != nil {
 				fmt.Printf("Failed to register room: %v\n", err)
 				fmt.Printf("Continuing in direct connection mode\n")
@@ -155,7 +156,7 @@ func main() {
 			serverAddr := crypto.DeriveLocalServerAddress(fileContent, *password, *port)
 			fmt.Printf("Server address: %s\n", serverAddr)
 
-			err = registerWithDiscoveryWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, config.DefaultMaxRetries)
+			err = discovery.RegisterWithRetry(keyInfo, *discoveryServer, *port, keyInfo.MaxUsers, config.DefaultMaxRetries)
 			if err != nil {
 				fmt.Printf("Failed to register room: %v\n", err)
 				fmt.Printf("Starting in direct connection mode\n")

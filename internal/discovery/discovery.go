@@ -1,4 +1,4 @@
-package main
+package discovery
 
 import (
 	"bytes"
@@ -181,8 +181,8 @@ func lookupRoom(discoveryURL, roomID string) (*DiscoveryResponse, error) {
 	return &discovery, nil
 }
 
-// getPublicIP attempts to get the public IP address using external services
-func getPublicIP() (string, error) {
+// GetPublicIP attempts to get the public IP address using external services
+func GetPublicIP() (string, error) {
 	// List of public IP services to try
 	services := []string{
 		"https://api.ipify.org",
@@ -218,7 +218,7 @@ func getPublicIP() (string, error) {
 // registerWithDiscovery registers a new room with the discovery server using KeyInfo
 func registerWithDiscovery(keyInfo *config.KeyInfo, discoveryURL string, port int, maxUsers int) error {
 	// Get public IP address for internet-wide server registration
-	publicIP, err := getPublicIP()
+	publicIP, err := GetPublicIP()
 	if err != nil {
 		fmt.Printf("Warning: Could not get public IP (%v), using localhost (local network only)\n", err)
 		publicIP = "127.0.0.1"
@@ -342,15 +342,15 @@ func checkDiscoveryHealth(discoveryURL string) error {
 	return nil
 }
 
-// registerWithDiscoveryWithRetry registers a room with retry logic
-func registerWithDiscoveryWithRetry(keyInfo *config.KeyInfo, discoveryURL string, port int, maxUsers int, maxRetries int) error {
+// RegisterWithRetry registers a room with retry logic
+func RegisterWithRetry(keyInfo *config.KeyInfo, discoveryURL string, port int, maxUsers int, maxRetries int) error {
 	return retryDiscoveryOperation(func() error {
 		return registerWithDiscovery(keyInfo, discoveryURL, port, maxUsers)
 	}, maxRetries)
 }
 
-// lookupRoomInDiscoveryWithRetry looks up a room with retry logic
-func lookupRoomInDiscoveryWithRetry(roomID, discoveryURL string, maxRetries int) (string, error) {
+// LookupRoomWithRetry looks up a room with retry logic
+func LookupRoomWithRetry(roomID, discoveryURL string, maxRetries int) (string, error) {
 	var result string
 	var resultErr error
 
@@ -367,15 +367,15 @@ func lookupRoomInDiscoveryWithRetry(roomID, discoveryURL string, maxRetries int)
 	return result, resultErr
 }
 
-// deleteRoomFromDiscoveryWithRetry deletes a room with retry logic
-func deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL string, maxRetries int) error {
+// DeleteRoomWithRetry deletes a room with retry logic
+func DeleteRoomWithRetry(roomID, discoveryURL string, maxRetries int) error {
 	return retryDiscoveryOperation(func() error {
 		return deleteRoomFromDiscovery(roomID, discoveryURL)
 	}, maxRetries)
 }
 
-// checkDiscoveryAndFallback tests discovery server availability and logs fallback mode
-func checkDiscoveryAndFallback(discoveryURL string, port int) bool {
+// CheckAndFallback tests discovery server availability and logs fallback mode
+func CheckAndFallback(discoveryURL string, port int) bool {
 
 	if isDiscoveryServerAvailable(discoveryURL) {
 		fmt.Printf("Discovery server available: %s\n", discoveryURL)
@@ -423,8 +423,8 @@ func checkRoomJoinability(roomID string, current, max int) (bool, error) {
 
 // Discovery Server HTTP Handlers
 
-// runDiscoveryServer starts the HTTP discovery server with graceful shutdown
-func runDiscoveryServer(port int) error {
+// RunServer starts the HTTP discovery server with graceful shutdown
+func RunServer(port int) error {
 	// Create HTTP server with explicit configuration
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", handleHealth)
@@ -588,8 +588,8 @@ func handleRoomDelete(w http.ResponseWriter, roomID string) {
 	json.NewEncoder(w).Encode(map[string]string{"status": "deleted"})
 }
 
-// registerDiscoveryCleanup registers cleanup for discovery server registration
-func registerDiscoveryCleanup(roomID, discoveryURL string) {
+// RegisterCleanup registers cleanup for discovery server registration
+func RegisterCleanup(roomID, discoveryURL string) {
 	if discoveryURL == "" {
 		return
 	}
@@ -598,7 +598,7 @@ func registerDiscoveryCleanup(roomID, discoveryURL string) {
 		logging.Debug("Cleaning up discovery server registration")
 
 		// Use shorter timeout for discovery cleanup during shutdown
-		err := deleteRoomFromDiscoveryWithRetry(roomID, discoveryURL, 1)
+		err := DeleteRoomWithRetry(roomID, discoveryURL, 1)
 		if err != nil {
 			logging.Warn("Failed to cleanup discovery registration: %v", err)
 		} else {
