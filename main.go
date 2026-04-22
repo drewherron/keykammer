@@ -7,11 +7,12 @@ import (
 	"strings"
 
 	"keykammer/internal/config"
+	"keykammer/internal/memory"
 )
 
 func main() {
 	// Initialize production memory optimizations
-	optimizeForProduction()
+	memory.OptimizeForProduction()
 	
 	// Initialize graceful shutdown handling
 	StartGracefulShutdownHandler()

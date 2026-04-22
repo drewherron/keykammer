@@ -1,4 +1,4 @@
-package main
+package memory
 
 import (
 	"os"
@@ -78,15 +78,15 @@ func putBuffer(buf []byte) {
 	}
 }
 
-// getStringSlice retrieves a string slice from pool
-func getStringSlice() *[]string {
+// GetStringSlice retrieves a string slice from pool
+func GetStringSlice() *[]string {
 	slice := stringSlicePool.Get().(*[]string)
 	*slice = (*slice)[:0] // Reset length but keep capacity
 	return slice
 }
 
-// putStringSlice returns a string slice to pool
-func putStringSlice(slice *[]string) {
+// PutStringSlice returns a string slice to pool
+func PutStringSlice(slice *[]string) {
 	if cap(*slice) > 100 { // Don't pool excessively large slices
 		return
 	}
@@ -132,8 +132,8 @@ func startMemoryMonitor() {
 	}()
 }
 
-// optimizeForProduction sets runtime parameters for production use
-func optimizeForProduction() {
+// OptimizeForProduction sets runtime parameters for production use
+func OptimizeForProduction() {
 	// Set garbage collection target percentage (lower = more frequent GC, less memory)
 	runtime.GOMAXPROCS(runtime.NumCPU()) // Use all available CPUs
 	
@@ -147,8 +147,8 @@ func optimizeForProduction() {
 	startMemoryMonitor()
 }
 
-// cleanupResources performs cleanup of pooled resources
-func cleanupResources() {
+// CleanupResources performs cleanup of pooled resources
+func CleanupResources() {
 	// Clear buffer pools to free memory
 	smallBufferPool = sync.Pool{New: func() interface{} { return make([]byte, SmallBufferSize) }}
 	mediumBufferPool = sync.Pool{New: func() interface{} { return make([]byte, MediumBufferSize) }}
@@ -169,8 +169,8 @@ func cleanupResources() {
 	logging.Debug("Resource cleanup completed")
 }
 
-// Efficient string operations for reducing allocations
-func efficientStringJoin(parts []string, separator string) string {
+// EfficientStringJoin efficiently joins strings with a separator
+func EfficientStringJoin(parts []string, separator string) string {
 	if len(parts) == 0 {
 		return ""
 	}

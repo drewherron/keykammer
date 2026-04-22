@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"keykammer/internal/logging"
+	"keykammer/internal/memory"
 )
 
 // GracefulShutdown manages coordinated shutdown of all application components
@@ -110,7 +111,7 @@ func performGracefulShutdown() error {
 		}
 		
 		// Cleanup resources
-		cleanupResources()
+		memory.CleanupResources()
 		
 		done <- nil
 	}()

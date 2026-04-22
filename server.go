@@ -12,6 +12,7 @@ import (
 	"google.golang.org/grpc"
 	"keykammer/internal/config"
 	"keykammer/internal/logging"
+	"keykammer/internal/memory"
 	pb "keykammer/proto"
 )
 
@@ -310,8 +311,8 @@ func (s *server) getTakenUsernames() []string {
 	defer s.mutex.RUnlock()
 
 	// Use memory pool for efficient string slice allocation
-	taken := getStringSlice()
-	defer putStringSlice(taken)
+	taken := memory.GetStringSlice()
+	defer memory.PutStringSlice(taken)
 	
 	for username := range s.usernames {
 		*taken = append(*taken, username)
@@ -354,14 +355,14 @@ func (s *server) getUserList() string {
 	}
 
 	// Use memory pool for efficient string slice allocation
-	userList := getStringSlice()
-	defer putStringSlice(userList)
+	userList := memory.GetStringSlice()
+	defer memory.PutStringSlice(userList)
 	
 	for _, clientInfo := range s.clients {
 		*userList = append(*userList, clientInfo.Username)
 	}
 
-	return fmt.Sprintf("Users in room (%d): %s", len(s.clients), efficientStringJoin(*userList, ", "))
+	return fmt.Sprintf("Users in room (%d): %s", len(s.clients), memory.EfficientStringJoin(*userList, ", "))
 }
 
 // handleUserListCommand processes /users or /who commands
@@ -375,7 +376,7 @@ func (s *server) notifyUserListChange() {
 	userList := s.getUsernameList()
 
 	// Create a system message with user list info
-	userListMsg := fmt.Sprintf("USERLIST:%s", efficientStringJoin(userList, ","))
+	userListMsg := fmt.Sprintf("USERLIST:%s", memory.EfficientStringJoin(userList, ","))
 
 	// Broadcast to all clients as a system message
 	systemMsg := &pb.ChatMessage{
@@ -394,8 +395,8 @@ func (s *server) getUsernameList() []string {
 	defer s.mutex.RUnlock()
 
 	// Use memory pool for efficient string slice allocation
-	userList := getStringSlice()
-	defer putStringSlice(userList)
+	userList := memory.GetStringSlice()
+	defer memory.PutStringSlice(userList)
 	
 	for _, clientInfo := range s.clients {
 		*userList = append(*userList, clientInfo.Username)
