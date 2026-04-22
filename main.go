@@ -8,6 +8,7 @@ import (
 
 	"keykammer/internal/config"
 	"keykammer/internal/memory"
+	"keykammer/internal/shutdown"
 )
 
 func main() {
@@ -15,7 +16,7 @@ func main() {
 	memory.OptimizeForProduction()
 	
 	// Initialize graceful shutdown handling
-	StartGracefulShutdownHandler()
+	shutdown.StartGracefulShutdownHandler()
 	
 	// Load configuration automatically (looks for keykammer.yaml in current directory)
 	cfg, err := config.LoadConfig("")

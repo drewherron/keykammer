@@ -14,6 +14,7 @@ import (
 	"keykammer/internal/config"
 	"keykammer/internal/errors"
 	"keykammer/internal/logging"
+	"keykammer/internal/shutdown"
 )
 
 // Discovery server data structures
@@ -441,7 +442,7 @@ func runDiscoveryServer(port int) error {
 	}
 
 	// Register graceful shutdown for HTTP server
-	RegisterShutdownCallback(func() error {
+	shutdown.RegisterShutdownCallback(func() error {
 		logging.Debug("Shutting down discovery HTTP server")
 		
 		// Create context with timeout for shutdown
@@ -593,7 +594,7 @@ func registerDiscoveryCleanup(roomID, discoveryURL string) {
 		return
 	}
 
-	RegisterShutdownCallback(func() error {
+	shutdown.RegisterShutdownCallback(func() error {
 		logging.Debug("Cleaning up discovery server registration")
 
 		// Use shorter timeout for discovery cleanup during shutdown

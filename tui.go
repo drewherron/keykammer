@@ -11,6 +11,7 @@ import (
 	"github.com/rivo/tview"
 	"keykammer/internal/config"
 	"keykammer/internal/logging"
+	"keykammer/internal/shutdown"
 	pb "keykammer/proto"
 )
 
@@ -364,7 +365,7 @@ func displayMessage(username, message string) {
 
 // registerTUICleanup registers cleanup for TUI components
 func registerTUICleanup() {
-	RegisterShutdownCallback(func() error {
+	shutdown.RegisterShutdownCallback(func() error {
 		logging.Debug("Shutting down TUI")
 
 		// Cleanup TUI components if they exist

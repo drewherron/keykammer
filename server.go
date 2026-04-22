@@ -13,6 +13,7 @@ import (
 	"keykammer/internal/config"
 	"keykammer/internal/logging"
 	"keykammer/internal/memory"
+	"keykammer/internal/shutdown"
 	pb "keykammer/proto"
 )
 
@@ -465,7 +466,7 @@ func runServer(roomID string, port int, maxUsers int) {
 
 	logging.Info("Server ready and listening on :%d", port)
 	if err := grpcServer.Serve(lis); err != nil {
-		if !IsShuttingDown() {
+		if !shutdown.IsShuttingDown() {
 			logging.Error("Failed to serve: %v", err)
 			os.Exit(1)
 		}
@@ -513,7 +514,7 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		
 		// Register UPnP cleanup if available
 		if upnpMapping != nil {
-			RegisterShutdownCallback(func() error {
+			shutdown.RegisterShutdownCallback(func() error {
 				logging.Debug("Cleaning up UPnP port forwarding")
 				return removeUPnPPortForwarding(upnpMapping)
 			})
@@ -523,7 +524,7 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 		serverReady <- true
 
 		if err := grpcServer.Serve(lis); err != nil {
-			if !IsShuttingDown() {
+			if !shutdown.IsShuttingDown() {
 				logging.Error("Failed to serve: %v", err)
 				os.Exit(1)
 			}
@@ -588,7 +589,7 @@ func runServerWithTUI(roomID string, port int, maxUsers int, encryptionKey []byt
 
 // registerServerShutdown registers cleanup for gRPC server
 func registerServerShutdown(server interface{}) {
-	RegisterShutdownCallback(func() error {
+	shutdown.RegisterShutdownCallback(func() error {
 		logging.Debug("Shutting down gRPC server")
 
 		// Type assertion for different server types
