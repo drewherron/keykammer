@@ -1,0 +1,13 @@
+.git
+.gitignore
+dist
+keykammer
+*.test
+*.out
+docs
+examples
+deployments
+init
+README.md
+LICENSE
+Makefile
