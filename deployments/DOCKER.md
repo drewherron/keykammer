@@ -6,12 +6,27 @@ This document explains how to run Keykammer using Docker containers.
 
 ### Build the Docker Image
 
+The Dockerfile lives at `deployments/Dockerfile`. The simplest way to build is
+via the Makefile, which injects version, build time, and git commit
+automatically:
+
 ```bash
-# Build with default version
-docker build -t keykammer .
+# Build with default version (from Makefile)
+make docker
 
 # Build with custom version
+make docker VERSION=0.3.0-alpha
+```
+
+To build directly with `docker build`, pass `-f` to point at the Dockerfile
+and run from the project root (so the build context picks up the source):
+
+```bash
+docker build -f deployments/Dockerfile -t keykammer .
+
+# With version metadata
 docker build \
+  -f deployments/Dockerfile \
   --build-arg VERSION=0.3.0-alpha \
   --build-arg BUILD_TIME="$(date -u '+%Y-%m-%d %H:%M:%S UTC')" \
   --build-arg GIT_COMMIT="$(git rev-parse --short HEAD)" \

@@ -343,6 +343,9 @@ make release
 
 # Quick development build
 make dev
+
+# Build a Docker image (see deployments/DOCKER.md)
+make docker
 ```
 
 **Using build script:**
