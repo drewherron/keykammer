@@ -80,6 +80,18 @@ deps:
 test:
 	go test -v ./...
 
+# Build Docker image
+.PHONY: docker
+docker:
+	docker build \
+		-f deployments/Dockerfile \
+		--build-arg VERSION=$(VERSION) \
+		--build-arg BUILD_TIME="$(BUILD_TIME)" \
+		--build-arg GIT_COMMIT=$(GIT_COMMIT) \
+		-t keykammer:$(VERSION) \
+		-t keykammer:latest \
+		.
+
 # Show version that would be built
 .PHONY: version
 version:
@@ -106,6 +118,7 @@ help:
 	@echo "  clean-dist  - Remove distribution folder"
 	@echo "  deps        - Install/update dependencies"
 	@echo "  test        - Run tests"
+	@echo "  docker      - Build Docker image (tagged with version and latest)"
 	@echo "  version     - Show version information"
 	@echo "  help        - Show this help message"
 	@echo ""
