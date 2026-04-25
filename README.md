@@ -10,7 +10,7 @@ The original idea was for any two users to run a program using an arbitrary file
 
 This might best be explained by describing an instance of actual use.
 
-Alice runs the program using a picture of her dog as the keyfile: `./keykammer fluffy.jpg`. A SHA-256 hash is created from the file, to be used as both the room ID and the key to encrypt any messages. On a remote discovery server, no existing room is found with that room ID, so the room becomes `LISTED` (i.e., Alice's IP address is associated with that room ID).
+Alice runs the program using a picture of her dog as the keyfile: `keykammer fluffy.jpg`. A SHA-256 hash is created from the file, to be used as both the room ID and the key to encrypt any messages. On a remote discovery server, no existing room is found with that room ID, so the room becomes `LISTED` (i.e., Alice's IP address is associated with that room ID).
 
 Bob runs the program with the same file. Hashing the file provides him with the room ID. The remote discovery server looks up Alice's IP address by this room ID, and connects Bob *directly* to Alice's room. The two users now have a private chatroom, directly encrypted using a key based on their arbitrary keyfile.
 
@@ -59,44 +59,45 @@ sudo mv keykammer-macos-arm64 /usr/local/bin/keykammer
 # and place it in a directory on your PATH
 ```
 
-To build from source instead, see [Building](#building) below.
+### Build from source
+
+Requires [Go](https://go.dev/dl/) 1.19 or later.
+
+```
+go install github.com/drewherron/keykammer@latest
+```
+
+Or clone and build:
+
+```
+git clone https://github.com/drewherron/keykammer.git
+cd keykammer
+make build
+```
+
+This produces a binary executable `./keykammer`. You can also use `make
+release-all` to cross-compile binaries for all supported platforms into
+`dist/`, `make test` to run the test suite, or `make docker` to build a
+Docker image (see [deployments/DOCKER.md](deployments/DOCKER.md)).
 
 ### Quick Start
 
 **1. Run a discovery server (on a VM or public server):**
 
-*Linux/macOS:*
-```bash
-./keykammer -discovery-server-mode -port 53952
 ```
-
-*Windows:*
-```cmd
-keykammer.exe -discovery-server-mode -port 53952
+keykammer -discovery-server-mode -port 53952
 ```
 
 **2. Start first chat instance:**
 
-*Linux/macOS:*
-```bash
-./keykammer myfile.txt -discovery-server http://your-server:53952
 ```
-
-*Windows:*
-```cmd
-keykammer.exe myfile.txt -discovery-server http://your-server:53952
+keykammer myfile.txt -discovery-server http://your-server:53952
 ```
 
 **3. Join from another computer:**
 
-*Linux/macOS:*
-```bash
-./keykammer myfile.txt -discovery-server http://your-server:53952
 ```
-
-*Windows:*
-```cmd
-keykammer.exe myfile.txt -discovery-server http://your-server:53952
+keykammer myfile.txt -discovery-server http://your-server:53952
 ```
 
 Both users can now chat in real-time. The first user automatically becomes the server, the second connects as a client. UPnP will attempt automatic port forwarding. When the room reaches capacity, all evidence of it is deleted from the discovery server.
@@ -105,50 +106,26 @@ Both users can now chat in real-time. The first user automatically becomes the s
 
 **Basic chat (2 users max by default):**
 
-*Linux/macOS:*
-```bash
-./keykammer photo.jpg
 ```
-
-*Windows:*
-```cmd
-keykammer.exe photo.jpg
+keykammer photo.jpg
 ```
 
 **Larger group chat (up to 5 users):**
 
-*Linux/macOS:*
-```bash
-./keykammer document.pdf -size 5
 ```
-
-*Windows:*
-```cmd
-keykammer.exe document.pdf -size 5
+keykammer document.pdf -size 5
 ```
 
 **Direct connection (bypass discovery):**
 
-*Linux/macOS:*
-```bash
-./keykammer myfile.txt -connect 192.168.1.100:53952
 ```
-
-*Windows:*
-```cmd
-keykammer.exe myfile.txt -connect 192.168.1.100:53952
+keykammer myfile.txt -connect 192.168.1.100:53952
 ```
 
 **With password for additional security:**
 
-*Linux/macOS:*
-```bash
-./keykammer data.bin -password "additional secret"
 ```
-
-*Windows:*
-```cmd
-keykammer.exe data.bin -password "additional secret"
+keykammer data.bin -password "additional secret"
 ```
 
 ## Cryptographic Security
@@ -262,15 +239,15 @@ discovery_server_mode: false
 ```
 
 **Usage Examples:**
-```bash
+```
 # With config file - uses values from keykammer.yaml
-./keykammer photo.jpg
+keykammer photo.jpg
 
 # Override config values with command line flags
-./keykammer photo.jpg -port 9999
+keykammer photo.jpg -port 9999
 
 # Without config file - uses built-in defaults
-./keykammer photo.jpg -port 53952
+keykammer photo.jpg -port 53952
 ```
 
 The included `keykammer.yaml` contains the standard default values with documentation. Simply edit this file to customize your default settings.
@@ -322,55 +299,6 @@ The codebase is organized into focused modules for maintainability:
 - **TUI** (`github.com/rivo/tview`) - Terminal user interface library
 - **UPnP** (`github.com/huin/goupnp`) - Automatic port forwarding
 - **YAML** (`gopkg.in/yaml.v3`) - Configuration file parsing
-
-### Building
-
-**Be sure Go is installed:**
-```
-sudo apt install golang
-```
-
-**Using Make (recommended):**
-```bash
-# Install dependencies
-make deps
-
-# Build with version information
-make build
-
-# Build optimized release version
-make release
-
-# Quick development build
-make dev
-
-# Build a Docker image (see deployments/DOCKER.md)
-make docker
-```
-
-**Using build script:**
-```bash
-# Build with default version
-./build.sh
-
-# Build with custom version
-./build.sh 2.0.0
-```
-
-**Manual build:**
-```bash
-# Install dependencies
-go mod tidy
-
-# Simple build (no version info)
-go build -o keykammer *.go
-
-# Run with keyfile
-./keykammer path/to/file
-
-# Check version
-./keykammer -version
-```
 
 ## Current State
 
