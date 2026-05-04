@@ -16,6 +16,7 @@
                 <div class="logo-section">
                     <h1>KEYKAMMER</h1>
                 </div>
+                <!-- Status box -->
                 <div class="status-box desktop-only">
                     <div class="status-label">Discovery server:</div>
                     <div class="status-indicator">
@@ -31,7 +32,7 @@
     <div class="mobile-status-container">
         <div class="container">
             <div class="status-box mobile-only">
-                <div class="status-label">Discovery server status:</div>
+                <div class="status-label">Discovery server:</div>
                 <div class="status-indicator">
                     <div class="status-light" id="status-light-mobile"></div>
                 </div>
@@ -42,12 +43,12 @@
 
     <main class="container">
         <section class="hero">
-            <h2>File-Based P2P Encrypted Chatrooms</h2>
-            <p>Inside every file is a chatroom trying to get out. Keykammer creates secure chatrooms using any arbitrary file as both the room identifier and encryption key. Users with the same file can connect to a private encrypted chat from anywhere on the internet.</p>
+            <h2>Inside every file is a chatroom trying to get out</h2>
+            <p>Keykammer creates secure chatrooms using any arbitrary file as both the room identifier and encryption key. Users with the same file can connect to a private encrypted chat from anywhere on the internet.</p>
 
             <div class="warning-box">
                 <h3 class="warning-title">WARNING</h3>
-                <p>This is experimental software and needs testing. It probably won't harm your computer but is not guaranteed to work reliably. I'm publishing this website now to allow people to help with testing and contribute code to get this to a more polished and reliable state.</p>
+                <p>This is experimental software and needs testing. I don't see how it could harm your computer but it's not guaranteed to work reliably. I'm publishing this website now to allow people to help with testing and contribute code to get this to a more polished and reliable state.</p>
             </div>
 
         </section>
@@ -76,7 +77,6 @@
                 <li><strong>End-to-end encryption</strong> - AES-256-GCM with HKDF key derivation</li>
                 <li><strong>Zero logging</strong> - No room data or messages stored anywhere</li>
                 <li><strong>Ephemeral rooms</strong> - Rooms exist only while users are connected</li>
-                <li><strong>Terminal interface</strong> - Clean TUI with real-time updates</li>
                 <li><strong>Auto port forwarding</strong> - UPnP support for easy networking</li>
                 <li><strong>Cross-platform</strong> - Works on Linux, macOS, and Windows</li>
                 <li><strong>Open Source</strong> - View the code on <a href="https://github.com/drewherron/keykammer">GitHub</a></li>
@@ -88,15 +88,19 @@
             <p>Get the latest release for your platform:</p>
 
             <div class="download-links">
-                <a href="dist/keykammer-0.3.0-alpha-linux-amd64" class="download-btn" download>
+                <a href="dist/keykammer-linux-amd64" class="download-btn" download>
                     <span class="platform">Linux</span>
                     <span class="arch">x86_64</span>
                 </a>
-                <a href="dist/keykammer-0.3.0-alpha-macos-intel" class="download-btn" download>
+                <a href="dist/keykammer-macos-intel" class="download-btn" download>
                     <span class="platform">macOS</span>
                     <span class="arch">Intel</span>
                 </a>
-                <a href="dist/keykammer-0.3.0-alpha-windows-amd64.exe" class="download-btn" download>
+                <a href="dist/keykammer-macos-arm64" class="download-btn" download>
+                    <span class="platform">macOS</span>
+                    <span class="arch">Apple Silicon</span>
+                </a>
+                <a href="dist/keykammer-windows-amd64.exe" class="download-btn" download>
                     <span class="platform">Windows</span>
                     <span class="arch">x86_64</span>
                 </a>
@@ -110,13 +114,13 @@
             <div class="code-block">
                 <code>
 # Basic usage - any file becomes a chatroom<br>
-./keykammer photo.jpg<br><br>
+keykammer photo.jpg<br><br>
 
 # With custom room size<br>
-./keykammer document.pdf -size 5<br><br>
+keykammer document.pdf -size 5<br><br>
 
 # Direct connection (no discovery server)<br>
-./keykammer myfile.txt -connect 192.168.1.100:53952
+keykammer myfile.txt -connect 192.168.1.100:53952
                 </code>
             </div>
         </section>

@@ -43,7 +43,7 @@ header {
 header h1 {
     font-family: "Blaka Hollow", system-ui;
     font-size: 7rem;
-    margin-bottom: 0.2rem;
+    margin-bottom: 1rem;
     font-weight: 400;
     color: black;
     line-height: 0.9;
@@ -63,7 +63,7 @@ header h1 {
     border-radius: 8px;
     padding: 1rem;
     text-align: center;
-    min-width: 200px;
+    min-width: 100px;
 }
 
 .status-box.desktop-only {
@@ -154,7 +154,7 @@ main {
 }
 
 .hero h2 {
-    font-size: 2.2rem;
+    font-size: 2rem;
     margin-top: 2rem;
     margin-bottom: 1rem;
     color: #6bd6c1;
@@ -418,7 +418,7 @@ footer a:hover {
 }
 
 /* Responsive Design */
-@media (max-width: 768px) {
+@media (max-width: 868px) {
     .container {
         padding: 0 15px;
     }
@@ -434,7 +434,7 @@ footer a:hover {
     }
 
     header h1 {
-        font-size: 3rem;
+        font-size: 5rem;
     }
 
     .desktop-only {
@@ -453,12 +453,12 @@ footer a:hover {
         margin: 0 auto;
         min-width: auto;
         width: 100%;
-        max-width: 250px;
+        max-width: 150px;
     }
 
 
     .hero h2 {
-        font-size: 1.8rem;
+        font-size: 1.5rem;
     }
 
     .cta-buttons {
@@ -466,12 +466,28 @@ footer a:hover {
         align-items: center;
     }
 
-    .download-links {
+/*    .download-links {
         flex-direction: column;
         align-items: center;
+    }*/
+
+    .download-btn {
+        display: flex;
+        flex-direction: column;
+        padding: 1rem 1rem;
+        min-width: 120px;
     }
 
     .feature-grid {
         grid-template-columns: 1fr;
+        max-width: 360px;
+        margin-left: auto;
+        margin-right: auto;
+    }
+}
+
+@media (max-width: 400px) {
+    header h1 {
+        font-size: 4rem;
     }
 }
